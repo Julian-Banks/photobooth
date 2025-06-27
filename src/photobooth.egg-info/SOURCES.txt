@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/photobooth/__init__.py
+src/photobooth/camera.py
+src/photobooth/main.py
+src/photobooth/motion_tracking.py
+src/photobooth.egg-info/PKG-INFO
+src/photobooth.egg-info/SOURCES.txt
+src/photobooth.egg-info/dependency_links.txt
+src/photobooth.egg-info/requires.txt
+src/photobooth.egg-info/top_level.txt
