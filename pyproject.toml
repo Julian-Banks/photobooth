@@ -5,6 +5,7 @@ dependencies=[
   "opencv-python",
   "mediapipe",
   "numpy",
+  "flask",
 ]
 requires-python = ">=3.9"
 authors = [

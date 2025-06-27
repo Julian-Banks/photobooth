@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pose Stream</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Live Pose Detection</h1>
+    <img src="{{ url_for('video_feed') }}" id="video-stream" />
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
