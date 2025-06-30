@@ -18,11 +18,10 @@ python --version #or python3 --version if this give an error
 #create a virtual environment
 python -m venv venv
 
-# Install with pip (Python 3.9+ required)
-pip install .
+# Install with pip (-e keeps the local library live so if you edit it the venv will update the import)
+pip install -e .
 ```
 
-**Note:** MediaPipe requires [system dependencies](https://google.github.io/mediapipe/getting_started/install.html)
 
 ## Basic Usage
 
@@ -33,6 +32,9 @@ source venv/bin/activate
 # Start development server
 python -m src.main
 
+#or to see options run:
+pytohn -m src.main --help
 ```
+
 
 Access web interface at `http://localhost:5000`
