@@ -8,7 +8,15 @@
 <body>
     <h1>Live Pose Detection</h1>
     <img src="{{ url_for('video_feed') }}" id="video-stream" />
+    
+    <div id = "stats">
+      <p>FPS: <span id="fps">--</span></p>
+      <p>Model: <span id="model">--</span></p>
+      <p>numPoses: <span id="numPoses">--</span></p>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
 </body>
 </html>
 

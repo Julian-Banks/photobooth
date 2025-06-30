@@ -1,0 +1,20 @@
+
+#stats {
+    font-family: monospace;
+    background: #eee;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+#video-stream {
+    width: 100%;
+    max-width: 640px;
+    display: block;
+    margin: 0 auto;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+}
