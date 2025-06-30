@@ -27,12 +27,9 @@ def get_overlay_image():
 
 
 def draw_overlay_image(frame, detection_result, landmark_no):
-    
     threshold_visibility = 0.5 
-
     pose_landmarks_list = detection_result.pose_landmarks 
     frame = np.copy(frame)
-    
 
     for idx in range(len(pose_landmarks_list)):
         pose_landmarks = pose_landmarks_list[idx]
@@ -42,8 +39,7 @@ def draw_overlay_image(frame, detection_result, landmark_no):
                 h,w,_ = frame.shape
                 tracked_landmark_x = int(tracked_landmark.x*w)
                 tracked_landmark_y = int(tracked_landmark.y*h)
-                frame = overlay_image(frame,overlay_img,tracked_landmark_x, tracked_landmark_y)
-    
+                frame = overlay_image(frame,OVERLAY,tracked_landmark_x, tracked_landmark_y)
     return frame
 
 def draw_landmarks():
@@ -56,12 +52,23 @@ def overlay_image(frame, overlay,x,y):
     x1 = max(x-w//2,0)
     y1 = max(y-h//2,0)
     x2 = min(x1+w,fw)
-    y2 = min(y1+h,bh)
+    y2 = min(y1+h,fh)
 
     overlay_x1 = max(0, -(x-w//2))
     overlay_y1 = max(0, -(y-h//2))
     overlay_x2 = overlay_x1 + (x2-x1)
     overlay_y2 = overlay_y1 + (y2-y1)
+    
+    if overlay_y2 - overlay_y1 <= 0 or overlay_x2-overlay_x1 <= 0:
+        return frame
 
-    
-    
+    overlay_crop = overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2]
+    alpha_overlay = overlay_crop[:,:,3]/255.0
+    alpha_frame = 1.0 - alpha_overlay
+
+    for c in range(3):
+        frame[y1:y2, x1:x2,c] = (
+            alpha_overlay * overlay_crop[:,:,c] + alpha_frame*frame[y1,y2, x1,x2,c]
+        )
+
+    return frame 
