@@ -1,10 +1,28 @@
+from os import rename
 import re
+import mediapipe as mp 
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 from photobooth.config import OVERLAY
 import cv2
-import numpy as np 
+import numpy as np
+from photobooth.pose_detection import DETECTION_STATE, DetectionState
 
+class SmoothedPoint:
+    def __init__(self, alpha = 0.3):
+        self.alpha = alpha
+        self.prev_x = None
+        self.prev_y = None
+
+    def update(self,x,y):
+        if self.prev_x is None or self.prev_y is None:
+            self.prev_x, self.prev_y = x,y
+        else:
+            self.prev_x = self.alpha*x + (1-self.alpha)*self.prev_x
+            self.prev_y = self.alpha*y + (1-self.alpha)*self.prev_y
+        return int(self.prev_x), int(self.prev_y)
+
+smooth_point = SmoothedPoint(alpha=0.25)
 
 def get_stream_frame(frame):
     _, buffer = cv2.imencode('.jpg',frame)
@@ -25,11 +43,22 @@ def get_overlay_image():
     )
     return overlay_image
 
+def process_image(frame, skeleton:int = 1, landmark_no = 12):
+    if DETECTION_STATE.result: 
+        if skeleton == 1:
+            frame = draw_landmarks_on_image(frame)
 
-def draw_overlay_image(frame, detection_result, landmark_no):
+        frame = draw_overlay_image(frame, landmark_no)
+
+    frame = cv2.flip(frame,1)
+    return frame 
+
+
+def draw_overlay_image(frame, landmark_no):
     threshold_visibility = 0.5 
-    pose_landmarks_list = detection_result.pose_landmarks 
+    pose_landmarks_list = DETECTION_STATE.result.pose_landmarks 
     frame = np.copy(frame)
+    overlay_image = get_overlay_image()
 
     for idx in range(len(pose_landmarks_list)):
         pose_landmarks = pose_landmarks_list[idx]
@@ -39,36 +68,68 @@ def draw_overlay_image(frame, detection_result, landmark_no):
                 h,w,_ = frame.shape
                 tracked_landmark_x = int(tracked_landmark.x*w)
                 tracked_landmark_y = int(tracked_landmark.y*h)
-                frame = overlay_image(frame,OVERLAY,tracked_landmark_x, tracked_landmark_y)
+                frame = overlay(frame,overlay_image,tracked_landmark_x, tracked_landmark_y)
     return frame
 
-def draw_landmarks():
-    pass
+def draw_landmarks_on_image(frame):
+    mp_frame = mp.Image(image_format = mp.ImageFormat.SRGB, data = frame) 
+    pose_landmarks_list = DETECTION_STATE.result.pose_landmarks
+    mp_frame = mp_frame.numpy_view()
+    frame = np.copy(mp_frame)
 
-def overlay_image(frame, overlay,x,y):
-    h,w,_ = overlay.shape
-    fh,fw,_ = frame.shape
+    # Loop through the detected poses to visualize.
+    for idx in range(len(pose_landmarks_list)):
+        pose_landmarks = pose_landmarks_list[idx]
+        # Draw the pose landmarks.
+        pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+        pose_landmarks_proto.landmark.extend([
+        landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in pose_landmarks
+        ])
+        solutions.drawing_utils.draw_landmarks(
+        frame,
+        pose_landmarks_proto,
+        solutions.pose.POSE_CONNECTIONS,
+        solutions.drawing_styles.get_default_pose_landmarks_style())
+    
+    return frame
 
-    x1 = max(x-w//2,0)
-    y1 = max(y-h//2,0)
-    x2 = min(x1+w,fw)
-    y2 = min(y1+h,fh)
 
-    overlay_x1 = max(0, -(x-w//2))
-    overlay_y1 = max(0, -(y-h//2))
-    overlay_x2 = overlay_x1 + (x2-x1)
-    overlay_y2 = overlay_y1 + (y2-y1)
+def overlay(frame, overlay,x,y):
+    h,w = overlay.shape[:2]
+    fh,fw = frame.shape[:2]
+
+    x,y = smooth_point.update(x,y)
+    
+    #Top left of overlay 
+    x1 = x - w//2 
+    y1 = y - h//2 
+    
+    #overlay and frame bounds
+    overlay_x1 = max(0, -x1)
+    overlay_y1 = max(0, -y1)
+    overlay_x2 = min(w,fw-x1)
+    overlay_y2 = min(h, fh-y1)
+
+    frame_x1 = max(0,x1)
+    frame_y1 = max(0,y1)
+    frame_x2 = frame_x1 + (overlay_x2 - overlay_x1)
+    frame_y2 = frame_y1 + (overlay_y2 - overlay_y1)
     
     if overlay_y2 - overlay_y1 <= 0 or overlay_x2-overlay_x1 <= 0:
-        return frame
+        return frame #completely out of bounds
 
     overlay_crop = overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2]
-    alpha_overlay = overlay_crop[:,:,3]/255.0
+    frame_crop = frame[frame_y1:frame_y2, frame_x1:frame_x2]
+    
+    if overlay_crop.shape[2] == 4:
+        alpha_overlay = overlay_crop[:,:,3]/255.0
+        alpha_overlay = alpha_overlay[:,:,np.newaxis] 
+    else :
+        alpha_overlay = np.ones_like(overlay_crop[:,:,:1])
+
     alpha_frame = 1.0 - alpha_overlay
 
-    for c in range(3):
-        frame[y1:y2, x1:x2,c] = (
-            alpha_overlay * overlay_crop[:,:,c] + alpha_frame*frame[y1,y2, x1,x2,c]
-        )
+    blended = (alpha_overlay*overlay_crop[:,:,:3]+alpha_frame*frame_crop).astype(np.uint8)
+    frame[frame_y1:frame_y2, frame_x1:frame_x2] = blended
+    return frame
 
-    return frame 
