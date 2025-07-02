@@ -33,13 +33,13 @@ def main_loop():
     print("starting stream")
     stream = camera.start_stream()
     print("loading landmarker")
-    landmarker = pose_detection.setup_pose_landmarker(model = app.config['MODEL'], num_poses=app.config['numPoses'])
+    landmarker = pose_detection.setup_pose_landmarker(model = app.config['MODEL'], num_poses=app.config['numPoses'], enable_segmentation= app.config['BACKGROUND'])
     try: 
         run = True
         while run :
             ret,frame = stream.read()
             pose_detection.detect_pose(landmarker = landmarker, frame = frame)
-            frame = drawing.process_image(frame, skeleton=app.config['SKELETON'], landmark_no= app.config['LANDMARK'])
+            frame = drawing.process_image(frame, skeleton=app.config['SKELETON'], landmark_no= app.config['LANDMARK'], background = app.config['BACKGROUND'])
             MJPEG_stream = drawing.get_stream_frame(frame)
             #run = camera.display_stream(frame)
             yield MJPEG_stream
@@ -49,9 +49,10 @@ def main_loop():
 def create_arg_parser():
     parser = argparse.ArgumentParser(description="Motion tracking overlay")
     parser.add_argument("-l","--landmark", type=int,default = 15, help = "Index of the pose landmark to track (12 for shoulder, 15 for wrist")
-    parser.add_argument("-s","--skeleton", type=int, default = 1, help = "Show the skeleton for motion tracking with 1 (defualt) or 0 to hide it")
+    parser.add_argument("-s","--skeleton", type=int, default = 0, help = "Show the skeleton for motion tracking with 1 (defualt) or 0 to hide it")
     parser.add_argument("-p","--numPoses", type=int, default = 1, help='Max number of poses that can be detected by the landmarker', required=False)
-    parser.add_argument("-m","--model", type=int, default = 1, help= "0 - Pose detector lite, 1 - pose detector full, 2 - pose detector heavy")
+    parser.add_argument("-m","--model", type=int, default = 0, help= "0 - Pose detector lite, 1 - pose detector full, 2 - pose detector heavy")
+    parser.add_argument("-b", "--background", type = int, default = 1, help = "0 - normal live stream background, 1 for remove background" )
     return parser
     
 if __name__ == "__main__":
@@ -59,10 +60,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     app.config['LANDMARK'] = args.landmark
-    app.config['SKELETON'] = args.skeleton
+    if args.skeleton == 1:
+        app.config['SKELETON'] = True
+    else:
+        app.config['SKELETON'] = False
+    
     app.config['numPoses'] = args.numPoses
     app.config['MODEL']    = args.model
+    if args.background == 1: 
+        app.config['BACKGROUND'] = True
+    else: 
+        app.config['BACKGROUND'] = False 
 
-    app.run(debug = True)
+    app.run(debug = True, host ='0.0.0.0', port = '8080')
     
   
