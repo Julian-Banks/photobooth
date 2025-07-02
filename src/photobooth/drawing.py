@@ -3,12 +3,14 @@ import re
 import mediapipe as mp 
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
-from photobooth.config import OVERLAY
-from photobooth.config import BACKGROUND
+from numpy.lib.stride_tricks import as_strided
+from photobooth.config import OVERLAY, BACKGROUND, ASSET
 import cv2
 import numpy as np
 from photobooth.pose_detection import DETECTION_STATE, DetectionState
-
+BACKGROUND_IMAGE = None
+OVERLAY_IMAGE = None
+ASSET_IMAGE = None 
 
 class SmoothedPoint:
     def __init__(self, alpha = 0.3):
@@ -24,7 +26,21 @@ class SmoothedPoint:
             self.prev_y = self.alpha*y + (1-self.alpha)*self.prev_y
         return int(self.prev_x), int(self.prev_y)
 
-smooth_point = SmoothedPoint(alpha=0.25)
+smooth_point = SmoothedPoint(alpha=0.4)
+
+def get_overlay_image():
+    global OVERLAY_IMAGE
+    if OVERLAY_IMAGE is None: 
+        OVERLAY_IMAGE = cv2.imread(OVERLAY, cv2.IMREAD_UNCHANGED) 
+        OVERLAY_IMAGE = cv2.flip(OVERLAY_IMAGE, 1)
+    return OVERLAY_IMAGE
+
+
+def get_background_image():
+    global BACKGROUND_IMAGE
+    if BACKGROUND_IMAGE is None:
+        BACKGROUND_IMAGE = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
+    return BACKGROUND_IMAGE 
 
 def get_stream_frame(frame):
     _, buffer = cv2.imencode('.jpg',frame)
@@ -33,26 +49,63 @@ def get_stream_frame(frame):
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
     return stream_frame
 
-def get_overlay_image():
-    overlay_image = cv2.imread(OVERLAY,cv2.IMREAD_UNCHANGED)
-    scale_factor = 1/4.0
-    overlay_image = cv2.resize(
-        overlay_image,
-        (0,0),
-        fx=scale_factor,
-        fy = scale_factor,
-        interpolation = cv2.INTER_AREA, 
-    )
-    return overlay_image
+def get_asset():
+    global ASSET_IMAGE 
+    if ASSET_IMAGE is None:
+        asset = cv2.imread(ASSET,cv2.IMREAD_UNCHANGED)
+        scale_factor = 1/4.0
+        asset = cv2.resize(
+            asset,
+            (0,0),
+            fx=scale_factor,
+            fy = scale_factor,
+            interpolation = cv2.INTER_AREA, 
+        )
+        ASSET_IMAGE = asset 
+    return ASSET_IMAGE
 
-def get_background_image(frame):
-    background_image = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
-    h,w,_ = frame.shape
-    background_image = cv2.resize(background_image, (w,h),interpolation = cv2.INTER_AREA)
+def draw_overlay(frame):
+    asset = get_overlay_image()
+    b,g,r,a = cv2.split(asset)
+    asset = cv2.merge([b,g,r])
+    alpha_mask = a/255.0
 
-    return background_image 
+    ah, aw, _ = asset.shape
+    fh, fw, _ = frame.shape
+    
+    x_padding = 100
+    y_offset = 50 
 
-def process_image(frame, skeleton:bool = False, landmark_no = 12, background: bool = False):
+    if (aw+x_padding>fw):
+        asset = cv2.resize(asset, (fw-x_padding, ah*((fw-x_padding)/aw)), interpolation= cv2.INTER_AREA)
+        ah, aw,_ = asset.shape
+    if (ah + y_offset > fh):
+        asset = cv2.resize(asset, (aw*(fh-50)/ah,(fh-50)), interpolation= cv2.INTER_AREA)
+        ah, aw, _  = asset.shape
+    
+    x_offset:int  = int((fw - aw)//2 )
+
+    roi = frame[y_offset: y_offset+ah, x_offset:x_offset+aw] 
+    inv_alpha_mask = 1.0 - alpha_mask
+
+    for c in range(0,3):
+        roi[:,:,c] = (roi[:,:,c]*inv_alpha_mask+asset[:,:,c]*alpha_mask)
+
+    return frame
+        
+
+def check_background_size(frame):
+    background_image = get_background_image()
+    h,w,_ = frame.shape 
+    bh, bw, _ = background_image.shape 
+
+    if bw != w or bh != h:
+        global BACKGROUND_IMAGE
+        BACKGROUND_IMAGE = cv2.resize(background_image, (w,h), interpolation=cv2.INTER_AREA)
+    
+    return BACKGROUND_IMAGE
+
+def process_image(frame, skeleton:bool = False, landmark_no = 12, background: bool = False, overlay:bool = True):
     if DETECTION_STATE.result: 
         result = DETECTION_STATE.result
 
@@ -62,8 +115,11 @@ def process_image(frame, skeleton:bool = False, landmark_no = 12, background: bo
         if background and result.segmentation_masks:
             frame = draw_segmentation_on_image(frame, result)
         
+        if overlay:
+            frame = draw_overlay(frame)
+
         if result.pose_landmarks:
-            frame = draw_overlay_image(frame, landmark_no, result)
+            frame = draw_asset_image(frame, landmark_no, result)
 
     frame = cv2.flip(frame,1)
     return frame 
@@ -73,7 +129,7 @@ def draw_segmentation_on_image(frame, result):
     bg_image = np.zeros_like(frame, dtype = np.uint8)
     bg_image[:] = BG_COLOR
 
-    background_image = get_background_image(frame)
+    background_image = check_background_size(frame)
 
     segmentation_mask = result.segmentation_masks[0].numpy_view()
     condition = np.repeat(segmentation_mask[:,:,np.newaxis], 3,axis= 2)>0.1 
@@ -81,12 +137,12 @@ def draw_segmentation_on_image(frame, result):
     frame = np.where(condition,frame,background_image)
     return frame 
 
-def draw_overlay_image(frame, landmark_no, result ):
+
+def draw_asset_image(frame, landmark_no, result ):
     threshold_visibility = 0.5 
     pose_landmarks_list = result.pose_landmarks 
     frame = np.copy(frame)
-    overlay_image = get_overlay_image()
-
+    
     for idx in range(len(pose_landmarks_list)):
         pose_landmarks = pose_landmarks_list[idx]
         if len(pose_landmarks)>landmark_no:
@@ -95,7 +151,7 @@ def draw_overlay_image(frame, landmark_no, result ):
                 h,w,_ = frame.shape
                 tracked_landmark_x = int(tracked_landmark.x*w)
                 tracked_landmark_y = int(tracked_landmark.y*h)
-                frame = overlay(frame,overlay_image,tracked_landmark_x, tracked_landmark_y)
+                frame = draw_asset(frame,tracked_landmark_x, tracked_landmark_y)
     return frame
 
 def draw_landmarks_on_image(frame, result):
@@ -121,15 +177,17 @@ def draw_landmarks_on_image(frame, result):
     return frame
 
 
-def overlay(frame, overlay,x,y):
-    h,w = overlay.shape[:2]
+def draw_asset(frame,x,y):
+    asset = get_asset()
+
+    h,w = asset.shape[:2]
     fh,fw = frame.shape[:2]
 
     x,y = smooth_point.update(x,y)
     
     #Top left of overlay 
-    x1 = x - w//2 
-    y1 = y - h//2 
+    x1 = x - w 
+    y1 = y - h 
     
     #overlay and frame bounds
     overlay_x1 = max(0, -x1)
@@ -145,18 +203,18 @@ def overlay(frame, overlay,x,y):
     if overlay_y2 - overlay_y1 <= 0 or overlay_x2-overlay_x1 <= 0:
         return frame #completely out of bounds
 
-    overlay_crop = overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2]
+    asset_crop = asset[overlay_y1:overlay_y2, overlay_x1:overlay_x2]
     frame_crop = frame[frame_y1:frame_y2, frame_x1:frame_x2]
     
-    if overlay_crop.shape[2] == 4:
-        alpha_overlay = overlay_crop[:,:,3]/255.0
+    if asset_crop.shape[2] == 4:
+        alpha_overlay = asset_crop[:,:,3]/255.0
         alpha_overlay = alpha_overlay[:,:,np.newaxis] 
     else :
-        alpha_overlay = np.ones_like(overlay_crop[:,:,:1])
+        alpha_overlay = np.ones_like(asset_crop[:,:,:1])
 
     alpha_frame = 1.0 - alpha_overlay
 
-    blended = (alpha_overlay*overlay_crop[:,:,:3]+alpha_frame*frame_crop).astype(np.uint8)
+    blended = (alpha_overlay*asset_crop[:,:,:3]+alpha_frame*frame_crop).astype(np.uint8)
     frame[frame_y1:frame_y2, frame_x1:frame_x2] = blended
     return frame
 

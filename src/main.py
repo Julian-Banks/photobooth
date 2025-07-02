@@ -39,7 +39,7 @@ def main_loop():
         while run :
             ret,frame = stream.read()
             pose_detection.detect_pose(landmarker = landmarker, frame = frame)
-            frame = drawing.process_image(frame, skeleton=app.config['SKELETON'], landmark_no= app.config['LANDMARK'], background = app.config['BACKGROUND'])
+            frame = drawing.process_image(frame, skeleton=app.config['SKELETON'], landmark_no= app.config['LANDMARK'], background = app.config['BACKGROUND'], overlay=app.config['OVERLAY'])
             MJPEG_stream = drawing.get_stream_frame(frame)
             #run = camera.display_stream(frame)
             yield MJPEG_stream
@@ -48,12 +48,14 @@ def main_loop():
 
 def create_arg_parser():
     parser = argparse.ArgumentParser(description="Motion tracking overlay")
-    parser.add_argument("-l","--landmark", type=int,default = 15, help = "Index of the pose landmark to track (12 for shoulder, 15 for wrist")
+    parser.add_argument("-l","--landmark", type=int,default = 12, help = "Index of the pose landmark to track (12 for shoulder, 15 for wrist")
     parser.add_argument("-s","--skeleton", type=int, default = 0, help = "Show the skeleton for motion tracking with 1 (defualt) or 0 to hide it")
     parser.add_argument("-p","--numPoses", type=int, default = 1, help='Max number of poses that can be detected by the landmarker', required=False)
     parser.add_argument("-m","--model", type=int, default = 0, help= "0 - Pose detector lite, 1 - pose detector full, 2 - pose detector heavy")
     parser.add_argument("-b", "--background", type = int, default = 1, help = "0 - normal live stream background, 1 for remove background" )
+    parser.add_argument("-o","--overlay", type= int, default=1, help = "0 - no front overlay, 1 for a static front overlay")
     return parser
+
     
 if __name__ == "__main__":
     parser = create_arg_parser()  
@@ -71,6 +73,10 @@ if __name__ == "__main__":
         app.config['BACKGROUND'] = True
     else: 
         app.config['BACKGROUND'] = False 
+    if args.overlay ==1:
+        app.config['OVERLAY'] = True
+    else:
+        app.config['OVERLAY'] = False
 
     app.run(debug = True, host ='0.0.0.0', port = '8080')
     
