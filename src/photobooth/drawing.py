@@ -1,12 +1,14 @@
-from os import rename
+from os import get_exec_path, rename
 import re
 import mediapipe as mp 
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 from photobooth.config import OVERLAY
+from photobooth.config import BACKGROUND
 import cv2
 import numpy as np
 from photobooth.pose_detection import DETECTION_STATE, DetectionState
+
 
 class SmoothedPoint:
     def __init__(self, alpha = 0.3):
@@ -43,20 +45,45 @@ def get_overlay_image():
     )
     return overlay_image
 
-def process_image(frame, skeleton:int = 1, landmark_no = 12):
-    if DETECTION_STATE.result: 
-        if skeleton == 1:
-            frame = draw_landmarks_on_image(frame)
+def get_background_image(frame):
+    background_image = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
+    h,w,_ = frame.shape
+    background_image = cv2.resize(background_image, (w,h),interpolation = cv2.INTER_AREA)
 
-        frame = draw_overlay_image(frame, landmark_no)
+    return background_image 
+
+def process_image(frame, skeleton:bool = False, landmark_no = 12, background: bool = False):
+    if DETECTION_STATE.result: 
+        result = DETECTION_STATE.result
+
+        if skeleton and result.pose_landmarks:
+            frame = draw_landmarks_on_image(frame, result)
+        
+        if background and result.segmentation_masks:
+            frame = draw_segmentation_on_image(frame, result)
+        
+        if result.pose_landmarks:
+            frame = draw_overlay_image(frame, landmark_no, result)
 
     frame = cv2.flip(frame,1)
     return frame 
 
+def draw_segmentation_on_image(frame, result):
+    BG_COLOR = (192, 192, 192)        
+    bg_image = np.zeros_like(frame, dtype = np.uint8)
+    bg_image[:] = BG_COLOR
 
-def draw_overlay_image(frame, landmark_no):
+    background_image = get_background_image(frame)
+
+    segmentation_mask = result.segmentation_masks[0].numpy_view()
+    condition = np.repeat(segmentation_mask[:,:,np.newaxis], 3,axis= 2)>0.1 
+    
+    frame = np.where(condition,frame,background_image)
+    return frame 
+
+def draw_overlay_image(frame, landmark_no, result ):
     threshold_visibility = 0.5 
-    pose_landmarks_list = DETECTION_STATE.result.pose_landmarks 
+    pose_landmarks_list = result.pose_landmarks 
     frame = np.copy(frame)
     overlay_image = get_overlay_image()
 
@@ -71,9 +98,9 @@ def draw_overlay_image(frame, landmark_no):
                 frame = overlay(frame,overlay_image,tracked_landmark_x, tracked_landmark_y)
     return frame
 
-def draw_landmarks_on_image(frame):
+def draw_landmarks_on_image(frame, result):
     mp_frame = mp.Image(image_format = mp.ImageFormat.SRGB, data = frame) 
-    pose_landmarks_list = DETECTION_STATE.result.pose_landmarks
+    pose_landmarks_list = result.pose_landmarks
     mp_frame = mp_frame.numpy_view()
     frame = np.copy(mp_frame)
 

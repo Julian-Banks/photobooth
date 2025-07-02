@@ -29,7 +29,7 @@ class DetectionState:
 
 DETECTION_STATE = DetectionState()
 
-def setup_pose_landmarker(model:int, num_poses:int):
+def setup_pose_landmarker(model:int, num_poses:int, enable_segmentation:bool):
     match model: 
         case 0:
             model_path = POSE_LITE
@@ -47,6 +47,7 @@ def setup_pose_landmarker(model:int, num_poses:int):
         base_options = BaseOptions(model_asset_path = model_path),
         running_mode = VisionRunningMode.LIVE_STREAM,
         num_poses = num_poses,
+        output_segmentation_masks = enable_segmentation,
         result_callback = detection_result,
     )
     landmarker = PoseLandmarker.create_from_options(options)
