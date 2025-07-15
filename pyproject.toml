@@ -5,6 +5,7 @@ dependencies=[
   "opencv-python",
   "mediapipe",
   "numpy",
+  "pre-commit",
   "flask",
 ]
 requires-python = ">=3.9"
@@ -19,4 +20,7 @@ readme = "README.md"
 requires = ["setuptools > 77.0.3"]
 build-backend = "setuptools.build_meta"
 
-
+[tool.black]
+line-length = 79
+target-version = ["py311"]
+skip-string-normalization = true
