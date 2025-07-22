@@ -55,6 +55,8 @@ def video_feed():
 def main_loop():
     print("starting stream")
     stream = camera.start_stream()
+    camera.print_camera_stats(stream)
+
     print("loading landmarker")
     landmarker = pose_detection.setup_pose_landmarker(
         model=app.config['MODEL'],
