@@ -1,0 +1,48 @@
+import re
+import cv2
+
+def test_stream(camera):
+    cap = cv2.VideoCapture(camera)
+
+    if not cap.isOpened():
+        print("error: Could not open camera.")
+        exit()
+    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    aspect_ratio = width / height if height else 0
+
+    print(f"Resolution   : {int(width)} x {int(height)}")
+    print(f"Aspect Ratio : {aspect_ratio:.2f}")
+    print(f"Frame Rate   : {fps:.2f} FPS")
+
+    while True:
+        ret,frame = cap.read()
+        if not ret:
+            print("error: could not read frame")
+            break
+        cv2.imshow(f'Camera: {camera}', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    cap.release()
+    cv2.destroyAllWindows()
+
+def get_available_cameras():
+    available_cameras = []
+
+    for i in range(5):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            available_cameras.append(i)
+            cap.release()
+            test_stream(i)
+    return available_cameras
+
+
+cameras = get_available_cameras()
+if cameras:
+    print("available_cameras: ", cameras)
+else: 
+    print("No cameras found")
+
+
