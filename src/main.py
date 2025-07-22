@@ -14,6 +14,21 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/welcome')
+def welcome():
+    return render_template('welcome.html')
+
+
+@app.route('/options')
+def options():
+    return render_template('options.html')
+
+
+@app.route('/qrcode')
+def qrcode():
+    return render_template('qrcode.html')
+
+
 @app.route('/stats_feed')
 def stats_feed():
     def generate():

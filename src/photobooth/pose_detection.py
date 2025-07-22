@@ -1,6 +1,7 @@
 import re
 import mediapipe as mp
 import time
+import cv2
 from mediapipe.tasks.python.vision import (
     PoseLandmarkerOptions,
     PoseLandmarkerResult,
@@ -66,7 +67,11 @@ def setup_pose_landmarker(
 
 def detect_pose(landmarker: PoseLandmarker, frame):
     # convert frame into right format for mediapipe. Settings from the example and I havne't had any issues so far.
-    mp_frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+
+    mp_frame = mp.Image(
+        image_format=mp.ImageFormat.SRGBA,
+        data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA),
+    )
     frame_timestamp_ms = time.monotonic_ns() // 1000
     landmarker.detect_async(mp_frame, frame_timestamp_ms)
 
