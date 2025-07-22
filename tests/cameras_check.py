@@ -1,6 +1,7 @@
 import re
 import cv2
 
+
 def test_stream(camera):
     cap = cv2.VideoCapture(camera)
 
@@ -17,7 +18,7 @@ def test_stream(camera):
     print(f"Frame Rate   : {fps:.2f} FPS")
 
     while True:
-        ret,frame = cap.read()
+        ret, frame = cap.read()
         if not ret:
             print("error: could not read frame")
             break
@@ -26,6 +27,7 @@ def test_stream(camera):
             break
     cap.release()
     cv2.destroyAllWindows()
+
 
 def get_available_cameras():
     available_cameras = []
@@ -42,7 +44,5 @@ def get_available_cameras():
 cameras = get_available_cameras()
 if cameras:
     print("available_cameras: ", cameras)
-else: 
+else:
     print("No cameras found")
-
-
