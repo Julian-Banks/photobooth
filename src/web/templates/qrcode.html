@@ -1,0 +1,16 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Code | Flask App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>QR Code Page</h1>
+        <p>QR code and preview of the photo will be shown here</p>
+        <img src="{{ url_for('static', filename='qrcode.png') }}" alt="QR Code">
+    </div>
+</body>
+</html>

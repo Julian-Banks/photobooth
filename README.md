@@ -20,6 +20,9 @@ python -m venv venv
 
 # Install with pip (-e keeps the local library live so if you edit it the venv will update the import)
 pip install -e .
+
+# Activate the pre-commit hooks (runs a linter before allowing commits)
+pre-commit install
 ```
 
 
