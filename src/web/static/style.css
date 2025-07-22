@@ -54,3 +54,57 @@ h1 {
     flex: 1;
     margin: 0 10px;
 }
+
+.popup {
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -30%);
+    background: white;
+    border: 2px solid black;
+    padding: 20px;
+    text-align: center;
+    z-index: 1000;
+}
+
+.choices {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.choice {
+    padding: 10px 20px;
+    border: 2px solid gray;
+    cursor: pointer;
+}
+
+.choice.selected {
+    border-color: black;
+    background-color: lightgray;
+}
+
+
+.carousel {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    overflow-x: auto;
+}
+
+.filter-option {
+    padding: 1rem 2rem;
+    border: 2px solid gray;
+    border-radius: 10px;
+    font-size: 1.5rem;
+    transition: transform 0.2s ease;
+}
+
+.filter-option.selected {
+    border-color: black;
+    background-color: lightgray;
+    transform: scale(1.1);
+}
+

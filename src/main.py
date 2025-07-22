@@ -1,20 +1,17 @@
 from photobooth import camera, pose_detection, drawing
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, session, request
 import json
 import time
 import argparse
+import os
 
 app = Flask(
     __name__, static_folder='web/static', template_folder='web/templates'
 )
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
 
 
 @app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/welcome')
 def welcome():
     return render_template('welcome.html')
 
@@ -22,6 +19,13 @@ def welcome():
 @app.route('/options')
 def options():
     return render_template('options.html')
+
+
+@app.route('/photobooth')
+def photobooth():
+    selected_filter = request.args.get('filter', 'none')
+    session['selected_filter'] = selected_filter
+    return render_template('index.html')
 
 
 @app.route('/qrcode')
@@ -47,12 +51,17 @@ def stats_feed():
 
 @app.route('/video_feed')
 def video_feed():
+    selected_filter = session.get('selected_filter', 'none')
     return Response(
-        main_loop(), mimetype='multipart/x-mixed-replace; boundary=frame'
+        main_loop(selected_filter),
+        mimetype='multipart/x-mixed-replace; boundary=frame',
     )
 
 
-def main_loop():
+def main_loop(filter='none'):
+
+    print(f"selected_filter: {filter}")
+
     print("starting stream")
     stream = camera.start_stream()
     camera.print_camera_stats(stream)

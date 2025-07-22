@@ -3,12 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <title>Options | Photobooth</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Options</h1>
-        <p>Pick your filter and all that jazz.</p>
-    </div>
+
+  <div class="container">
+      <h1>Options</h1>
+      <p>Pick your filter and all that jazz.</p>
+      <div class="carousel">
+          <div class="filter-option selected" data-filter="none">None</div>
+          <div class="filter-option" data-filter="sepia">Sepia</div>
+          <div class="filter-option" data-filter="grayscale">Grayscale</div>
+          <div class="filter-option" data-filter="blur">Blur</div>
+          <!-- add more filters if needed -->
+      </div>
+  </div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
