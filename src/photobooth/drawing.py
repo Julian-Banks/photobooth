@@ -1,13 +1,11 @@
-from os import get_exec_path, rename
-import re
 import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
-from numpy.lib.stride_tricks import as_strided
 from photobooth.config import OVERLAY, BACKGROUND, ASSET, ASSET1
 import cv2
 import numpy as np
-from photobooth.pose_detection import DETECTION_STATE, DetectionState
+from photobooth.pose_detection import DETECTION_STATE
+import os
 
 BACKGROUND_IMAGE = None
 OVERLAY_IMAGE = None
@@ -172,6 +170,21 @@ def process_image(
                 frame = draw_asset_image(1, frame, landmark_no, result)
     frame = cv2.flip(frame, 1)
     return frame
+
+
+def process_still_image(frame, timestamp):
+    pass
+
+
+def save_image(frame, path):
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    print(f"Frame dtype: {frame.dtype}, shape: {frame.shape}")
+    success = cv2.imwrite(path, frame)
+    if success:
+        print("Image saved successfully")
+    if not success:
+        print("Image not saved successfully!!!")
 
 
 def draw_segmentation_on_image(frame, result):
