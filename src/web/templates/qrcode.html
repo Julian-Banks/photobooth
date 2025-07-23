@@ -1,30 +1,38 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>QR Code | Flask App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <title>QR Code | Flask App</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>preview</h1>
-        <img src="{{ url_for('static', filename='image.png') }}" alt="QR Code">
-    </div>
-    <div class="container">
-        <h1>QR Code Page</h1>
-        <p>QR code to the microsite</p>
-        <img src="{{ url_for('static', filename='qrcode.png') }}" alt="QR Code">
+  <div class="container">
+    <h1>You're All Set!</h1>
+    <p>Here's your photo preview — you can screenshot or download it</p>
+
+    <div style="margin: 1.5rem 0;">
+      <img src="{{ url_for('static', filename='image.png') }}" alt="Preview Image"
+           style="max-width: 100%; height: auto; border-radius: 12px; border: 3px solid #ccc; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);">
     </div>
 
-<div id="confirm-popup" style="display:none;" class="popup">
-    <p>Return to Home?</p>
+    <p>Scan the QR code below to access your microsite</p>
+
+    <div style="margin: 2rem 0;">
+      <img src="{{ url_for('static', filename='qrcode.png') }}" alt="QR Code"
+           style="max-width: 80%; height: auto; border: 4px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
+    </div>
+
+    <p>Press <strong>Enter</strong> to go home, or choose below</p>
+  </div>
+
+  <div id="confirm-popup" style="display:none;" class="popup">
+    <p style="font-size: 1.3rem; font-weight: 500;">Return to Home?</p>
     <div class="choices">
-        <span id="confirm-yes" class="choice selected">Yes</span>
-        <span id="confirm-no" class="choice">No</span>
+      <span id="confirm-yes" class="choice selected">Yes</span>
+      <span id="confirm-no" class="choice">No</span>
     </div>
-</div>
+  </div>
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
