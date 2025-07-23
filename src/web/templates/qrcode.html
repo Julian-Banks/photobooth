@@ -8,8 +8,12 @@
 </head>
 <body>
     <div class="container">
+        <h1>preview</h1>
+        <img src="{{ url_for('static', filename='image.png') }}" alt="QR Code">
+    </div>
+    <div class="container">
         <h1>QR Code Page</h1>
-        <p>QR code and preview of the photo will be shown here</p>
+        <p>QR code to the microsite</p>
         <img src="{{ url_for('static', filename='qrcode.png') }}" alt="QR Code">
     </div>
 

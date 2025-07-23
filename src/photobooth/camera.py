@@ -14,6 +14,10 @@ def start_stream():
     return stream
 
 
+def capture_image():
+    pass
+
+
 def print_camera_stats(camera):
 
     width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))

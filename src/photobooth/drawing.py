@@ -174,6 +174,18 @@ def process_image(
     return frame
 
 
+def process_still_image(frame, timestamp):
+    pass
+
+
+def save_image(frame, path):
+    success = cv2.imwrite(path, frame)
+    if success:
+        print("Image saved successfully")
+    if not success:
+        print("Image not saved successfully!!!")
+
+
 def draw_segmentation_on_image(frame, result):
     BG_COLOR = (192, 192, 192)
     bg_image = np.zeros_like(frame, dtype=np.uint8)

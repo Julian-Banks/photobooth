@@ -4,6 +4,10 @@ import json
 import time
 import argparse
 import os
+from threading import Event
+
+capture_photo_event = Event()
+live_stream_event = Event()
 
 app = Flask(
     __name__, static_folder='web/static', template_folder='web/templates'
@@ -36,7 +40,7 @@ def qrcode():
 @app.route('/stats_feed')
 def stats_feed():
     def generate():
-        while True:
+        while live_stream_event.is_set():
             stats = {
                 "fps": pose_detection.DETECTION_STATE.fps,
                 "model": ["lite", "full", "heavy"][app.config["MODEL"]],
@@ -58,6 +62,12 @@ def video_feed():
     )
 
 
+@app.route('/capture_photo', methods=['POST'])
+def trigger_photo():
+    capture_photo_event.set()
+    return '', 204
+
+
 def main_loop(filter='none'):
 
     print(f"selected_filter: {filter}")
@@ -73,10 +83,26 @@ def main_loop(filter='none'):
         enable_segmentation=app.config['BACKGROUND'],
     )
     try:
-        run = True
-        while run:
+        live_stream_event.set()
+        while live_stream_event.is_set():
+
             ret, frame = stream.read()
             pose_detection.detect_pose(landmarker=landmarker, frame=frame)
+
+            # check to see if photo has been triggered.
+            if capture_photo_event.is_set():
+                print("Taking photo now!")
+                # start count down..
+
+                # raw_image = camera.capture_image()
+                # temp for before I play around with canon camera.
+                # raw_image = frame
+                # final_image = drawing.process_still_image(raw_image)
+
+                capture_photo_event.clear()
+                live_stream_event.clear()
+
+            # carry on with stream
             frame = drawing.process_image(
                 frame,
                 skeleton=app.config['SKELETON'],
@@ -85,6 +111,7 @@ def main_loop(filter='none'):
                 overlay=app.config['OVERLAY'],
                 pickachu=app.config['PIKACHU'],
             )
+            drawing.save_image(frame, path='/src/web/static/image.png')
             MJPEG_stream = drawing.get_stream_frame(frame)
             # run = camera.display_stream(frame)
             yield MJPEG_stream
@@ -104,9 +131,8 @@ def create_arg_parser():
     parser.add_argument(
         "-s",
         "--skeleton",
-        type=int,
-        default=0,
-        help="Show the skeleton for motion tracking with 1 (defualt) or 0 to hide it",
+        action='store_true',
+        help="Show the skeleton for motion tracking",
     )
     parser.add_argument(
         "-p",
@@ -126,23 +152,20 @@ def create_arg_parser():
     parser.add_argument(
         "-b",
         "--background",
-        type=int,
-        default=1,
-        help="0 - normal live stream background, 1 for remove background",
+        action='store_true',
+        help="Remove the background and replace with image",
     )
     parser.add_argument(
         "-o",
         "--overlay",
-        type=int,
-        default=1,
-        help="0 - no front overlay, 1 for a static front overlay",
+        action='store_true',
+        help="Add a front overlay",
     )
     parser.add_argument(
         "-pk",
         "--pikachu",
-        type=int,
-        default=0,
-        help="1 for pikachu, 0 for flower",
+        action='store_true',
+        help="Add an overlay of pickachu that tracks you!",
     )
 
     return parser
@@ -153,24 +176,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     app.config['LANDMARK'] = args.landmark
-    if args.skeleton == 1:
-        app.config['SKELETON'] = True
-    else:
-        app.config['SKELETON'] = False
+    app.config['SKELETON'] = args.skeleton
     app.config['numPoses'] = args.numPoses
     app.config['MODEL'] = args.model
-    if args.background == 1:
-        app.config['BACKGROUND'] = True
-    else:
-        app.config['BACKGROUND'] = False
-    if args.overlay == 1:
-        app.config['OVERLAY'] = True
-    else:
-        app.config['OVERLAY'] = False
-
-    if args.pikachu == 1:
-        app.config['PIKACHU'] = True
-    else:
-        app.config['PIKACHU'] = False
-
+    app.config['BACKGROUND'] = args.background
+    app.config['OVERLAY'] = args.overlay
+    app.config['PIKACHU'] = args.pikachu
     app.run(debug=True, host='0.0.0.0', port='8080')

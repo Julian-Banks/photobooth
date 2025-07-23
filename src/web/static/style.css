@@ -88,13 +88,24 @@ h1 {
 
 .carousel {
     display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-top: 2rem;
+    flex-direction: row;
+    flex-wrap: nowrap;               /* Prevent wrap to new line */
     overflow-x: auto;
+    overflow-y: hidden;              /* Enforce horizontal scroll only */
+    gap: 2rem;
+    padding: 1rem 0;
+    scrollbar-width: none;          /* Firefox */
 }
 
+.carousel::-webkit-scrollbar {
+    display: none;                  /* Chrome/Safari/Edge */
+}
+
+
 .filter-option {
+    flex: 0 0 auto;                 /* Don't shrink/grow */
+    min-width: 150px;              /* Prevent wrap */
+    text-align: center;
     padding: 1rem 2rem;
     border: 2px solid gray;
     border-radius: 10px;
