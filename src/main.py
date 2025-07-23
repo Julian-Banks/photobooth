@@ -108,8 +108,10 @@ def main_loop(filter='none'):
                 # temp for before I play around with canon camera.
                 # raw_image = frame
                 # final_image = drawing.process_still_image(raw_image)
-
-                drawing.save_image(frame, path='/src/web/static/image.png')
+                path = os.path.join(
+                    os.getcwd(), 'src', 'web', 'static', 'image.png'
+                )
+                drawing.save_image(frame, path=path)
                 capture_photo_event.clear()
                 live_stream_event.clear()
 
