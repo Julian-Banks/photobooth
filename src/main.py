@@ -89,6 +89,16 @@ def main_loop(filter='none'):
             ret, frame = stream.read()
             pose_detection.detect_pose(landmarker=landmarker, frame=frame)
 
+            # carry on with stream
+            frame = drawing.process_image(
+                frame,
+                skeleton=app.config['SKELETON'],
+                landmark_no=app.config['LANDMARK'],
+                background=app.config['BACKGROUND'],
+                overlay=app.config['OVERLAY'],
+                pickachu=app.config['PIKACHU'],
+            )
+
             # check to see if photo has been triggered.
             if capture_photo_event.is_set():
                 print("Taking photo now!")
@@ -99,19 +109,10 @@ def main_loop(filter='none'):
                 # raw_image = frame
                 # final_image = drawing.process_still_image(raw_image)
 
+                drawing.save_image(frame, path='/src/web/static/image.png')
                 capture_photo_event.clear()
                 live_stream_event.clear()
 
-            # carry on with stream
-            frame = drawing.process_image(
-                frame,
-                skeleton=app.config['SKELETON'],
-                landmark_no=app.config['LANDMARK'],
-                background=app.config['BACKGROUND'],
-                overlay=app.config['OVERLAY'],
-                pickachu=app.config['PIKACHU'],
-            )
-            drawing.save_image(frame, path='/src/web/static/image.png')
             MJPEG_stream = drawing.get_stream_frame(frame)
             # run = camera.display_stream(frame)
             yield MJPEG_stream
