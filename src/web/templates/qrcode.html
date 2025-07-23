@@ -8,6 +8,13 @@
 <body>
   <div class="container">
     <h1>You're All Set!</h1>
+    <p>Here's your photo preview — you can screenshot or download it</p>
+
+    <div style="margin: 1.5rem 0;">
+      <img src="{{ url_for('static', filename='image.png') }}" alt="Preview Image"
+           style="max-width: 100%; height: auto; border-radius: 12px; border: 3px solid #ccc; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);">
+    </div>
+
     <p>Scan the QR code below to access your microsite</p>
 
     <div style="margin: 2rem 0;">
