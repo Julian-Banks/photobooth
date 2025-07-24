@@ -7,7 +7,7 @@
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #endif
-
+#include <string>
 
 extern "C" {
 
@@ -15,8 +15,53 @@ extern "C" {
 EdsCameraRef camera = nullptr;
 static bool sdk_initialized = false;
 
+// g_download_path
+#include <mutex>
+static std::mutex g_download_mutex;
+static std::string g_download_path;
+static bool g_download_success = false;
+
+// shutdown flag
+
 // ---- Dummy Event Handlers (needed for macOS stability) ----
-EdsError EDSCALLBACK handleObjectEvent(EdsObjectEvent, EdsBaseRef, EdsVoid*) { return EDS_ERR_OK; }
+EdsError EDSCALLBACK handleObjectEvent(EdsObjectEvent event, EdsBaseRef object, EdsVoid* context) {
+    std::lock_guard<std::mutex> lock(g_download_mutex);
+    
+    if (event == kEdsObjectEvent_DirItemCreated || event == kEdsObjectEvent_DirItemRequestTransfer) {
+        EdsDirectoryItemRef dirItem = (EdsDirectoryItemRef)object;
+        EdsDirectoryItemInfo itemInfo;
+        EdsError err = EdsGetDirectoryItemInfo(dirItem, &itemInfo);
+        if (err != EDS_ERR_OK) {
+            std::cerr << "[edsdk_bridge] EdsGetDirectoryItemInfo failed: 0x" << std::hex << err << std::endl;
+            EdsRelease(dirItem);
+            return err;
+        }
+        EdsStreamRef stream = nullptr;
+        err = EdsCreateFileStream(
+            g_download_path.c_str(),
+            kEdsFileCreateDisposition_CreateAlways,
+            kEdsAccess_ReadWrite,
+            &stream);
+        if (err == EDS_ERR_OK) {
+            err = EdsDownload(dirItem, (EdsUInt32)itemInfo.size, stream);
+            if (err != EDS_ERR_OK) {
+                std::cerr << "[edsdk_bridge] EdsDownload failed: 0x" << std::hex << err << std::endl;
+            }
+            if (err == EDS_ERR_OK) {
+                EdsDownloadComplete(dirItem);
+                g_download_success = true;
+                std::cout << "[edsdk_bridge] Download success!\n";
+            }
+            EdsRelease(stream);
+        } else {
+            std::cerr << "[edsdk_bridge] EdsCreateFileStream failed: 0x" << std::hex << err << std::endl;
+        }
+        EdsRelease(dirItem);
+        return err;
+    }
+    if (object) EdsRelease(object);
+    return EDS_ERR_OK;
+}
 EdsError EDSCALLBACK handlePropertyEvent(EdsPropertyEvent, EdsPropertyID, EdsUInt32, EdsVoid*) { return EDS_ERR_OK; }
 EdsError EDSCALLBACK handleStateEvent(EdsStateEvent, EdsUInt32, EdsVoid*) { return EDS_ERR_OK; }
 
@@ -154,6 +199,40 @@ bool capture_photo() {
     return a == EDS_ERR_OK && b == EDS_ERR_OK;
 }
 
+
+bool capture_and_download(const char* local_path) {
+    if (!camera) return false;
+    {
+        std::lock_guard<std::mutex> lock(g_download_mutex);
+        g_download_path = local_path;
+        g_download_success = false;
+    }
+
+    EdsError err = EdsSendCommand(camera, kEdsCameraCommand_TakePicture, 0);
+    if (err != EDS_ERR_OK) return false;
+
+for (int i = 0; i < 200; ++i) {
+    {
+        std::lock_guard<std::mutex> lock(g_download_mutex);
+        if (g_download_success) {
+            std::cout << "[edsdk_bridge] capture_and_download: detected success, returning true\n";
+            return true;
+        }
+    }
+#ifdef __APPLE__
+    // Spin the run loop for 50ms to allow Canon events to be processed
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, false);
+#else
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+#endif
+
+}
+  std::cout << "[edsdk_bridge] capture_and_download: timeout, returning false\n";
+  return false;
+
+}
+
+
 bool set_iso(int iso_value) {
     if (!camera) return false;
     return EdsSetPropertyData(camera, kEdsPropID_ISOSpeed, 0, sizeof(iso_value), &iso_value) == EDS_ERR_OK;
@@ -189,7 +268,7 @@ bool get_live_view_frame(unsigned char* buffer, int* width, int* height) {
 }
 
 void shutdown_camera() {
-    std::cout << "[edsdk_bridge] Shutting down camera..." << std::endl;
+    std::cout << "[edsdk_bridge] Shutting down camera..." << std::endl;  
     if (camera) {
         EdsError close_err = EdsCloseSession(camera);
         std::cout << "[edsdk_bridge] EdsCloseSession: 0x" << std::hex << close_err << std::endl;

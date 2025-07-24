@@ -1,6 +1,7 @@
 import cv2
 import time
 from photobooth import camera_control
+import os
 
 
 def main():
@@ -29,16 +30,21 @@ def main():
                     break
                 elif key == 32:  # Spacebar to capture
                     print("📸 Capturing photo...")
-                    camera_control.take_photo()
+                    # camera_control.take_photo()
+
+                    path = os.path.join(os.getcwd(), 'test_photos')
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    path = os.path.join(path, 'image.jpg')
+                    saved = camera_control.capture_and_save(path)
                     time.sleep(1)
-
-                    print(
-                        "Displaying placeholder image (replace with real download)..."
-                    )
-                    cv2.imshow("Captured", frame)
-                    cv2.waitKey(2000)
-                    cv2.destroyWindow("Captured")
-
+                    if saved:
+                        print(f"Imaged saved to: {path}")
+                        saved_image = cv2.imread(path)
+                        cv2.imshow("Captured", saved_image)
+                        cv2.waitKey(2000)
+                        cv2.destroyWindow("Captured")
+                    else:
+                        print("image not saved... :(")
             print("Shutting down camera.")
             cap.release()
             cv2.destroyAllWindows()
