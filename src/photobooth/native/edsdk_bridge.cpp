@@ -23,6 +23,14 @@ static bool g_download_success = false;
 
 // shutdown flag
 
+//live view 
+bool start_live_view();
+bool stop_live_view();
+// For simplicity: allocate a buffer in C++ and return a pointer + size
+unsigned char* get_live_view_frame(int* out_size);
+void free_live_view_frame(unsigned char* buffer);
+
+
 // ---- Dummy Event Handlers (needed for macOS stability) ----
 EdsError EDSCALLBACK handleObjectEvent(EdsObjectEvent event, EdsBaseRef object, EdsVoid* context) {
     std::lock_guard<std::mutex> lock(g_download_mutex);
@@ -238,33 +246,70 @@ bool set_iso(int iso_value) {
     return EdsSetPropertyData(camera, kEdsPropID_ISOSpeed, 0, sizeof(iso_value), &iso_value) == EDS_ERR_OK;
 }
 
-bool get_live_view_frame(unsigned char* buffer, int* width, int* height) {
-    if (!camera) return false;
+static bool live_view_active = false;
 
+bool start_live_view() {
+    if (!camera) return false;
+    // Enable PC Live View
     EdsUInt32 device = kEdsEvfOutputDevice_PC;
-    EdsSetPropertyData(camera, kEdsPropID_Evf_OutputDevice, 0, sizeof(device), &device);
+    EdsError err = EdsSetPropertyData(camera, kEdsPropID_Evf_OutputDevice, 0, sizeof(device), &device);
+    live_view_active = (err == EDS_ERR_OK);
+    return live_view_active;
+}
+
+bool stop_live_view() {
+    if (!camera) return false;
+    EdsUInt32 device = kEdsEvfOutputDevice_TFT; // Or 0?
+    EdsError err = EdsSetPropertyData(camera, kEdsPropID_Evf_OutputDevice, 0, sizeof(device), &device);
+    live_view_active = false;
+    return (err == EDS_ERR_OK);
+}
+
+// Allocate and return a JPEG buffer for Python (caller must free)
+// Returns a newly-allocated JPEG buffer for Python (caller must free with free_live_view_frame)
+unsigned char* get_live_view_frame(int* out_size) {
+    if (!camera) return nullptr;
+    if (!live_view_active) start_live_view();
 
     EdsStreamRef stream = nullptr;
     EdsEvfImageRef evfImage = nullptr;
-    EdsCreateMemoryStream(0, &stream);
-    EdsCreateEvfImageRef(stream, &evfImage);
 
+    // Create memory stream to receive image
+    if (EdsCreateMemoryStream(0, &stream) != EDS_ERR_OK)
+        return nullptr;
+    if (EdsCreateEvfImageRef(stream, &evfImage) != EDS_ERR_OK) {
+        EdsRelease(stream);
+        return nullptr;
+    }
     if (EdsDownloadEvfImage(camera, evfImage) != EDS_ERR_OK) {
         EdsRelease(evfImage);
         EdsRelease(stream);
-        return false;
+        return nullptr;
     }
 
-    // Extract raw data
-    EdsUInt64 size;
+    // Get JPEG pointer and size
+    EdsUInt64 size = 0;
     EdsGetLength(stream, &size);
-    EdsGetPointer(stream, (EdsVoid**)&buffer);
-    *width = 960;  // Canon default EVF size (can be queried dynamically)
-    *height = 640;
+    if (size == 0) {
+        EdsRelease(evfImage);
+        EdsRelease(stream);
+        return nullptr;
+    }
+    unsigned char* ptr = nullptr;
+    EdsGetPointer(stream, (EdsVoid**)&ptr);
+
+    unsigned char* result = (unsigned char*)malloc(size);
+    if (result && ptr) memcpy(result, ptr, size);
+    *out_size = (int)size;
 
     EdsRelease(evfImage);
     EdsRelease(stream);
-    return true;
+    return result;
+}
+
+// Free buffer from Python
+void free_live_view_frame(unsigned char* buffer) {
+    free(buffer);
 }
 
 void shutdown_camera() {

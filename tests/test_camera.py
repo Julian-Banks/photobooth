@@ -1,5 +1,6 @@
 import cv2
 import time
+import numpy as np
 from photobooth import camera_control
 import os
 
@@ -8,20 +9,29 @@ def main():
     try:
         print("Initializing camera...")
         if camera_control.init_camera():
-            # camera_control.shutdown()
+            if not camera_control.start_live_view():
+                print("❌ Failed to start Canon live view.")
+                camera_control.shutdown()
+                return
 
             print("✅ Camera initialized. Starting live view...")
             window_name = "Live View (Press SPACE to capture, ESC to exit)"
-
-            cap = cv2.VideoCapture(
-                0
-            )  # Placeholder; real EVF integration will go here
+            cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
 
             while True:
-                ret, frame = cap.read()
-                if not ret:
-                    print("❌ Failed to get frame")
-                    break
+                # --- Get Canon live view frame as JPEG bytes ---
+                frame_jpeg = camera_control.get_live_view_frame()
+                if frame_jpeg is None:
+                    time.sleep(0.1)
+                    continue
+                # --- Decode JPEG to numpy image ---
+                frame = cv2.imdecode(
+                    np.frombuffer(frame_jpeg, dtype=np.uint8), cv2.IMREAD_COLOR
+                )
+                if frame is None:
+                    print("❌ Failed to decode live view frame")
+                    time.sleep(0.1)
+                    continue
 
                 cv2.imshow(window_name, frame)
                 key = cv2.waitKey(1)
@@ -30,23 +40,27 @@ def main():
                     break
                 elif key == 32:  # Spacebar to capture
                     print("📸 Capturing photo...")
-                    # camera_control.take_photo()
-
                     path = os.path.join(os.getcwd(), 'test_photos')
-                    os.makedirs(os.path.dirname(path), exist_ok=True)
-                    path = os.path.join(path, 'image.jpg')
-                    saved = camera_control.capture_and_save(path)
+                    os.makedirs(path, exist_ok=True)
+                    filename = os.path.join(path, 'image.jpg')
+                    saved = camera_control.capture_and_save(filename)
                     time.sleep(1)
                     if saved:
-                        print(f"Imaged saved to: {path}")
-                        saved_image = cv2.imread(path)
-                        cv2.imshow("Captured", saved_image)
-                        cv2.waitKey(2000)
-                        cv2.destroyWindow("Captured")
+                        print(f"Image saved to: {filename}")
+                        saved_image = cv2.imread(filename)
+                        if saved_image is not None:
+                            cv2.imshow("Captured", saved_image)
+                            cv2.waitKey(2000)
+                            cv2.destroyWindow("Captured")
+                        else:
+                            print(
+                                "Image saved but could not display it (read error)."
+                            )
                     else:
-                        print("image not saved... :(")
-            print("Shutting down camera.")
-            cap.release()
+                        print("Image not saved... :(")
+
+            print("Shutting down live view and camera.")
+            camera_control.stop_live_view()
             cv2.destroyAllWindows()
         else:
             print("❌ Failed to initialize Canon camera.")

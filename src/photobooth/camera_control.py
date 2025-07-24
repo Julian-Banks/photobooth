@@ -12,6 +12,12 @@ edsdk.shutdown_camera.restype = None
 edsdk.capture_and_download.argtypes = [ctypes.c_char_p]
 edsdk.capture_and_download.restype = ctypes.c_bool
 edsdk.get_camera_count.restype = ctypes.c_int
+edsdk.start_live_view.restype = ctypes.c_bool
+edsdk.stop_live_view.restype = ctypes.c_bool
+
+edsdk.get_live_view_frame.restype = ctypes.POINTER(ctypes.c_ubyte)
+edsdk.get_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_int)]
+edsdk.free_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
 
 
 def get_camera_count():
@@ -28,6 +34,24 @@ def take_photo():
 
 def capture_and_save(path):
     return edsdk.capture_and_download(path.encode("utf-8"))
+
+
+def start_live_view():
+    return edsdk.start_live_view()
+
+
+def stop_live_view():
+    return edsdk.stop_live_view()
+
+
+def get_live_view_frame():
+    size = ctypes.c_int()
+    ptr = edsdk.get_live_view_frame(ctypes.byref(size))
+    if not ptr or size.value == 0:
+        return None
+    buf = ctypes.string_at(ptr, size.value)
+    edsdk.free_live_view_frame(ptr)
+    return buf
 
 
 def set_iso(iso):
