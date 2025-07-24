@@ -7,20 +7,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
     <div class="container">
         <h1>Live Pose Detection</h1>
         <div class="video-wrapper">
             <img src="{{ url_for('video_feed') }}" id="video-stream" />
         </div>
-
-        <div id="stats">
-            <div class="stat"><strong>FPS:</strong> <span id="fps">--</span></div>
-            <div class="stat"><strong>Model:</strong> <span id="model">--</span></div>
-            <div class="stat"><strong>Poses:</strong> <span id="numPoses">--</span></div>
-        </div>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
 

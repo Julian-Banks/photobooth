@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Photobooth page
   if (path === '/photobooth') {
+    /*
     const eventSource = new EventSource("/stats_feed");
 
     eventSource.onmessage = function(event) {
@@ -70,9 +71,10 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error("SSE connection error", error);
       // Optional: stop retry attempts
       eventSource.close();
-    };
-
+    }; */
+    
     document.addEventListener('keydown', (event) => {
+      console.log('key pressed in photobooth')
       if (event.key === 'Enter') {
         fetch('/capture_photo', {
           method: 'POST'

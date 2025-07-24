@@ -1,5 +1,7 @@
 import ctypes
 import os
+import numpy as np
+import cv2
 
 lib_path = os.path.join(os.path.dirname(__file__), "native", "libedsdk.dylib")
 edsdk = ctypes.CDLL(lib_path)
@@ -51,7 +53,9 @@ def get_live_view_frame():
         return None
     buf = ctypes.string_at(ptr, size.value)
     edsdk.free_live_view_frame(ptr)
-    return buf
+
+    frame = cv2.imdecode(np.frombuffer(buf, dtype=np.uint8), cv2.IMREAD_COLOR)
+    return frame
 
 
 def set_iso(iso):

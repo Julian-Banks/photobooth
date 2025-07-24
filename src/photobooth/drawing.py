@@ -1,7 +1,14 @@
+from cv2.dnn import imagesFromBlob
 import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
-from photobooth.config import OVERLAY, BACKGROUND, ASSET, ASSET1
+from photobooth.config import (
+    OVERLAY,
+    BACKGROUND,
+    PATH_TO_SAVED_IMAGE,
+    ASSET,
+    ASSET1,
+)
 import cv2
 import numpy as np
 from photobooth.pose_detection import DETECTION_STATE
@@ -32,17 +39,19 @@ smooth_point = SmoothedPoint(alpha=0.4)
 smooth_point1 = SmoothedPoint(alpha=0.4)
 
 
-def get_overlay_image():
+def get_overlay_image(overlay):
     global OVERLAY_IMAGE
     if OVERLAY_IMAGE is None:
+        os.path.join(OVERLAY, f"{overlay}.png")
         OVERLAY_IMAGE = cv2.imread(OVERLAY, cv2.IMREAD_UNCHANGED)
         OVERLAY_IMAGE = cv2.flip(OVERLAY_IMAGE, 1)
     return OVERLAY_IMAGE
 
 
-def get_background_image():
+def get_background_image(background):
     global BACKGROUND_IMAGE
     if BACKGROUND_IMAGE is None:
+        os.path.joing(BACKGROUND_IMAGE, f"{background}.png")
         BACKGROUND_IMAGE = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
     return BACKGROUND_IMAGE
 
@@ -73,6 +82,18 @@ def get_asset():
     return ASSET_IMAGE
 
 
+def get_saved_photo():
+    image = cv2.imread(PATH_TO_SAVED_IMAGE, cv2.IMREAD_UNCHANGED)
+    image = cv2.resize(
+        image,
+        (0, 0),
+        fx=1080,
+        fy=1920,
+        interpolation=cv2.INTER_AREA,
+    )
+    return image
+
+
 def get_asset1():
     global ASSET1_IMAGE
     if ASSET1_IMAGE is None:
@@ -89,8 +110,8 @@ def get_asset1():
     return ASSET1_IMAGE
 
 
-def draw_overlay(frame):
-    asset = get_overlay_image()
+def draw_overlay(frame, overlay):
+    asset = get_overlay_image(overlay)
     b, g, r, a = cv2.split(asset)
     asset = cv2.merge([b, g, r])
     alpha_mask = a / 255.0
@@ -143,7 +164,7 @@ def check_background_size(frame):
     return BACKGROUND_IMAGE
 
 
-def process_image(
+def process_image_demo(
     frame,
     skeleton: bool = False,
     landmark_no=12,
@@ -172,8 +193,24 @@ def process_image(
     return frame
 
 
-def process_still_image(frame, timestamp):
-    pass
+def process_live_stream(frame, filter, size):
+    frame = cv2.rotate(frame, 90)
+    overlay = filter  # do error checking here
+    frame = motor_show(frame, overlay, size)
+    return frame
+
+
+def motor_show(frame, filter, size=None):
+    frame = draw_overlay(frame, filter)
+    return frame
+
+
+def process_still_image(filter, size):
+    image = get_saved_photo()
+    image = cv2.rotate(image, 90)
+    image = motor_show(image, filter)
+    # think I should change filter and size to state values that can be more easily accessed.
+    return image
 
 
 def save_image(frame, path):

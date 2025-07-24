@@ -116,15 +116,17 @@ static int internal_get_camera_count(int max_retries = 8, int delay_ms = 800) {
         std::cerr << "❌ EdsInitializeSDK failed: 0x" << std::hex << err << std::endl;
         return false;
     }
+    std::cout << "[edsdk_bridge] SDK initialised on thread "
+          << std::this_thread::get_id() << '\n';
     sdk_initialized = true;
-
+  
     
   #ifdef __APPLE__
       // Spin the CFRunLoop for half a second (like the Canon sample does)
       std::cout << "🔄 Spinning macOS runloop for 0.5s to allow camera enumeration...\n";
       CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.5, false);
   #endif
-
+  
     // Wait for camera(s) to be enumerated (macOS especially)
     int count = internal_get_camera_count();
     if (count == 0) {
@@ -209,7 +211,10 @@ bool capture_photo() {
 
 
 bool capture_and_download(const char* local_path) {
-    if (!camera) return false;
+std::cout << "[edsdk_bridge] capture on thread "
+          << std::this_thread::get_id() << '\n';
+
+  if (!camera) return false;
     {
         std::lock_guard<std::mutex> lock(g_download_mutex);
         g_download_path = local_path;
@@ -219,7 +224,7 @@ bool capture_and_download(const char* local_path) {
     EdsError err = EdsSendCommand(camera, kEdsCameraCommand_TakePicture, 0);
     if (err != EDS_ERR_OK) return false;
 
-for (int i = 0; i < 200; ++i) {
+for (int i = 0; i < 400; ++i) {
     {
         std::lock_guard<std::mutex> lock(g_download_mutex);
         if (g_download_success) {

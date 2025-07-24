@@ -1,4 +1,4 @@
-from photobooth import camera, pose_detection, drawing
+from photobooth import pose_detection, drawing, camera_control
 from flask import Flask, Response, render_template, session, request
 import json
 import time
@@ -6,8 +6,13 @@ import argparse
 import os
 from threading import Event
 
+
+# from photobooth.camera_singleton import CameraWorker
+# camera_worker = CameraWorker()
+
 capture_photo_event = Event()
 live_stream_event = Event()
+camera_initialised = Event()
 
 app = Flask(
     __name__, static_folder='web/static', template_folder='web/templates'
@@ -64,62 +69,44 @@ def video_feed():
 
 @app.route('/capture_photo', methods=['POST'])
 def trigger_photo():
-    capture_photo_event.set()
+    print("Taking a photo now!")
+    path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
+    ok = camera_control.capture_and_save(path)  # <- blocks ~2 s
+    if not ok:
+        return 'capture failed', 500
+    capture_photo_event.clear()
+    live_stream_event.clear()
     return '', 204
 
 
 def main_loop(filter='none'):
 
     print(f"selected_filter: {filter}")
-
-    print("starting stream")
-    stream = camera.start_stream()
-    camera.print_camera_stats(stream)
-
-    print("loading landmarker")
+    """
     landmarker = pose_detection.setup_pose_landmarker(
         model=app.config['MODEL'],
         num_poses=app.config['numPoses'],
         enable_segmentation=app.config['BACKGROUND'],
-    )
-    try:
-        live_stream_event.set()
-        while live_stream_event.is_set():
+    )"""
+    live_stream_event.set()
+    while live_stream_event.is_set():
+        frame = camera_control.get_live_view_frame()
+        if frame is None:
+            time.sleep(0.5)
+            continue
+        # pose_detection.detect_pose(landmarker=landmarker, frame=frame)
+        # carry on with stream
+        """frame = drawing.process_image(
+            frame,
+            skeleton=app.config['SKELETON'],
+            landmark_no=app.config['LANDMARK'],
+            background=app.config['BACKGROUND'],
+            overlay=app.config['OVERLAY'],
+            pickachu=app.config['PIKACHU'],
+        )"""
 
-            ret, frame = stream.read()
-            pose_detection.detect_pose(landmarker=landmarker, frame=frame)
-
-            # carry on with stream
-            frame = drawing.process_image(
-                frame,
-                skeleton=app.config['SKELETON'],
-                landmark_no=app.config['LANDMARK'],
-                background=app.config['BACKGROUND'],
-                overlay=app.config['OVERLAY'],
-                pickachu=app.config['PIKACHU'],
-            )
-
-            # check to see if photo has been triggered.
-            if capture_photo_event.is_set():
-                print("Taking photo now!")
-                # start count down..
-
-                # raw_image = camera.capture_image()
-                # temp for before I play around with canon camera.
-                # raw_image = frame
-                # final_image = drawing.process_still_image(raw_image)
-                path = os.path.join(
-                    os.getcwd(), 'src', 'web', 'static', 'image.png'
-                )
-                drawing.save_image(frame, path=path)
-                capture_photo_event.clear()
-                live_stream_event.clear()
-
-            MJPEG_stream = drawing.get_stream_frame(frame)
-            # run = camera.display_stream(frame)
-            yield MJPEG_stream
-    finally:
-        camera.shutdown(stream)
+        MJPEG_stream = drawing.get_stream_frame(frame)
+        yield MJPEG_stream
 
 
 def create_arg_parser():
@@ -185,4 +172,20 @@ if __name__ == "__main__":
     app.config['BACKGROUND'] = args.background
     app.config['OVERLAY'] = args.overlay
     app.config['PIKACHU'] = args.pikachu
-    app.run(debug=True, host='0.0.0.0', port='8080')
+
+    try:
+        camera_control.init_camera()
+        camera_control.start_live_view()
+        path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
+        # camera_control.capture_and_save(path = path )
+        app.run(
+            host='0.0.0.0',
+            port=8080,
+            threaded=False,
+            debug=False,
+            use_reloader=False,
+        )
+    finally:
+        # camera_worker.shutdown()
+        camera_control.stop_live_view()
+        camera_control.shutdown()

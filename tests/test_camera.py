@@ -20,14 +20,11 @@ def main():
 
             while True:
                 # --- Get Canon live view frame as JPEG bytes ---
-                frame_jpeg = camera_control.get_live_view_frame()
-                if frame_jpeg is None:
+                frame = camera_control.get_live_view_frame()
+                if frame is None:
                     time.sleep(0.1)
                     continue
-                # --- Decode JPEG to numpy image ---
-                frame = cv2.imdecode(
-                    np.frombuffer(frame_jpeg, dtype=np.uint8), cv2.IMREAD_COLOR
-                )
+
                 if frame is None:
                     print("❌ Failed to decode live view frame")
                     time.sleep(0.1)
