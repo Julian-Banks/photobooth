@@ -1,4 +1,4 @@
-from photobooth import pose_detection, drawing, camera_control
+from photobooth import pose_detection, drawing, camera_control, camera
 from flask import Flask, Response, render_template, session, request
 import json
 import time
@@ -70,10 +70,12 @@ def video_feed():
 @app.route('/capture_photo', methods=['POST'])
 def trigger_photo():
     print("Taking a photo now!")
+    processed = drawing.process_still_image("blue")
     path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
     ok = camera_control.capture_and_save(path)  # <- blocks ~2 s
     if not ok:
         return 'capture failed', 500
+    # processed = drawing.process_still_image("blue")
     capture_photo_event.clear()
     live_stream_event.clear()
     return '', 204
@@ -88,9 +90,15 @@ def main_loop(filter='none'):
         num_poses=app.config['numPoses'],
         enable_segmentation=app.config['BACKGROUND'],
     )"""
+
     live_stream_event.set()
     while live_stream_event.is_set():
-        frame = camera_control.get_live_view_frame()
+
+        if app.config['WEBCAM']:
+            _, frame = stream.read()
+        else:
+            frame = camera_control.get_live_view_frame()
+
         if frame is None:
             time.sleep(0.5)
             continue
@@ -104,6 +112,7 @@ def main_loop(filter='none'):
             overlay=app.config['OVERLAY'],
             pickachu=app.config['PIKACHU'],
         )"""
+        frame = drawing.process_live_stream(frame, filter)
 
         MJPEG_stream = drawing.get_stream_frame(frame)
         yield MJPEG_stream
@@ -158,6 +167,12 @@ def create_arg_parser():
         help="Add an overlay of pickachu that tracks you!",
     )
 
+    parser.add_argument(
+        "-w",
+        "--webcam",
+        action='store_true',
+        help="Include to use a webcam for the livestream instead of the canon sdk.",
+    )
     return parser
 
 
@@ -172,8 +187,11 @@ if __name__ == "__main__":
     app.config['BACKGROUND'] = args.background
     app.config['OVERLAY'] = args.overlay
     app.config['PIKACHU'] = args.pikachu
+    app.config['WEBCAM'] = args.webcam
 
     try:
+        if app.config['WEBCAM']:
+            stream = camera.start_stream()
         camera_control.init_camera()
         camera_control.start_live_view()
         path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
@@ -181,7 +199,7 @@ if __name__ == "__main__":
         app.run(
             host='0.0.0.0',
             port=8080,
-            threaded=False,
+            threaded=True,
             debug=False,
             use_reloader=False,
         )
@@ -189,3 +207,5 @@ if __name__ == "__main__":
         # camera_worker.shutdown()
         camera_control.stop_live_view()
         camera_control.shutdown()
+        if app.config['WEBCAM']:
+            camera.shutdown(stream)
