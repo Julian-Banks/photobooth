@@ -1,7 +1,16 @@
+from cv2.dnn import imagesFromBlob
 import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
-from photobooth.config import OVERLAY, BACKGROUND, ASSET, ASSET1
+import time
+from photobooth.config import (
+    OVERLAY,
+    BACKGROUND,
+    PATH_TO_SAVED_IMAGE,
+    PATH_TO_SAVED_IMAGE_LOAD,
+    ASSET,
+    ASSET1,
+)
 import cv2
 import numpy as np
 from photobooth.pose_detection import DETECTION_STATE
@@ -32,17 +41,24 @@ smooth_point = SmoothedPoint(alpha=0.4)
 smooth_point1 = SmoothedPoint(alpha=0.4)
 
 
-def get_overlay_image():
+def get_overlay_image(overlay):
     global OVERLAY_IMAGE
     if OVERLAY_IMAGE is None:
-        OVERLAY_IMAGE = cv2.imread(OVERLAY, cv2.IMREAD_UNCHANGED)
+        path = os.path.join(OVERLAY, f"{overlay}.png")
+        print(path)
+        OVERLAY_IMAGE = cv2.imread(path, cv2.IMREAD_UNCHANGED)
         OVERLAY_IMAGE = cv2.flip(OVERLAY_IMAGE, 1)
+        if OVERLAY_IMAGE is None:
+            print("Overlay image is none!!")
+        else:
+            print(f"image shape {OVERLAY_IMAGE.shape}")
     return OVERLAY_IMAGE
 
 
-def get_background_image():
+def get_background_image(background):
     global BACKGROUND_IMAGE
     if BACKGROUND_IMAGE is None:
+        path = os.path.join(BACKGROUND_IMAGE, f"{background}.png")
         BACKGROUND_IMAGE = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
     return BACKGROUND_IMAGE
 
@@ -73,6 +89,18 @@ def get_asset():
     return ASSET_IMAGE
 
 
+def get_saved_photo():
+    image = cv2.imread(PATH_TO_SAVED_IMAGE_LOAD, cv2.IMREAD_UNCHANGED)
+    # image = cv2.resize(
+    #    image,
+    #    (0, 0),
+    #    fx=1080,
+    #    fy=1920,
+    #    interpolation=cv2.INTER_AREA,
+    # )
+    return image
+
+
 def get_asset1():
     global ASSET1_IMAGE
     if ASSET1_IMAGE is None:
@@ -89,42 +117,24 @@ def get_asset1():
     return ASSET1_IMAGE
 
 
-def draw_overlay(frame):
-    asset = get_overlay_image()
-    b, g, r, a = cv2.split(asset)
-    asset = cv2.merge([b, g, r])
-    alpha_mask = a / 255.0
-
-    ah, aw, _ = asset.shape
+def draw_overlay(frame, overlay):
+    asset = get_overlay_image(overlay)  # shape (H, W, 4)
     fh, fw, _ = frame.shape
 
-    x_padding = 100
-    y_offset = 50
+    # Resize overlay (and alpha) to *exactly* match frame (can distort)
+    asset_resized = cv2.resize(asset, (fw, fh), interpolation=cv2.INTER_AREA)
+    b, g, r, a = cv2.split(asset_resized)
+    asset_rgb = cv2.merge([b, g, r])
+    alpha_mask = a / 255.0
 
-    if aw + x_padding > fw:
-        asset = cv2.resize(
-            asset,
-            (fw - x_padding, ah * ((fw - x_padding) / aw)),
-            interpolation=cv2.INTER_AREA,
-        )
-        ah, aw, _ = asset.shape
-    if ah + y_offset > fh:
-        asset = cv2.resize(
-            asset,
-            (aw * (fh - 50) / ah, (fh - 50)),
-            interpolation=cv2.INTER_AREA,
-        )
-        ah, aw, _ = asset.shape
-
-    x_offset: int = int((fw - aw) // 2)
-
-    roi = frame[y_offset : y_offset + ah, x_offset : x_offset + aw]
+    # Blend overlay onto frame using the alpha mask
     inv_alpha_mask = 1.0 - alpha_mask
 
-    for c in range(0, 3):
-        roi[:, :, c] = (
-            roi[:, :, c] * inv_alpha_mask + asset[:, :, c] * alpha_mask
-        )
+    # Ensure shape compatibility for broadcasting
+    for c in range(3):
+        frame[:, :, c] = (
+            frame[:, :, c] * inv_alpha_mask + asset_rgb[:, :, c] * alpha_mask
+        ).astype(np.uint8)
 
     return frame
 
@@ -143,7 +153,7 @@ def check_background_size(frame):
     return BACKGROUND_IMAGE
 
 
-def process_image(
+def process_image_demo(
     frame,
     skeleton: bool = False,
     landmark_no=12,
@@ -172,8 +182,51 @@ def process_image(
     return frame
 
 
-def process_still_image(frame, timestamp):
-    pass
+def resize_livestream(frame, target_height=1920, target_width=1080):
+    src_h, src_w = frame.shape[:2]
+    scale = max(target_width / src_w, target_height / src_h)
+    new_w = int(src_w * scale)
+    new_h = int(src_h * scale)
+
+    # Resize first, with no distortion
+    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    # Now crop to the center
+    x_start = (new_w - target_width) // 2
+    y_start = (new_h - target_height) // 2
+    cropped = resized[
+        y_start : y_start + target_height, x_start : x_start + target_width
+    ]
+    return cropped
+
+
+def process_live_stream(frame, filter, webcam, size=None):
+    # frame = cv2.rotate(frame, 90)\
+    if not webcam:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    frame = resize_livestream(frame)
+
+    overlay = filter  # do error checking here
+    frame = motor_show(frame, overlay, size)
+
+    frame = cv2.flip(frame, 1)
+    return frame
+
+
+def motor_show(frame, filter, size=None):
+    frame = draw_overlay(frame, filter)
+    return frame
+
+
+def process_still_image(filter, size=None):
+    image = get_saved_photo()
+    image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    image = motor_show(image, filter)
+    # print("saving_image!")
+    image = cv2.flip(image, 1)
+    save_image(image, PATH_TO_SAVED_IMAGE)
+    # think I should change filter and size to state values that can be more easily accessed.
+    return True
 
 
 def save_image(frame, path):
@@ -181,10 +234,6 @@ def save_image(frame, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     print(f"Frame dtype: {frame.dtype}, shape: {frame.shape}")
     success = cv2.imwrite(path, frame)
-    if success:
-        print("Image saved successfully")
-    if not success:
-        print("Image not saved successfully!!!")
 
 
 def draw_segmentation_on_image(frame, result):
