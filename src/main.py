@@ -84,12 +84,12 @@ def trigger_photo():
 def main_loop(filter='none'):
 
     print(f"selected_filter: {filter}")
-    """
+
     landmarker = pose_detection.setup_pose_landmarker(
         model=app.config['MODEL'],
         num_poses=app.config['numPoses'],
-        enable_segmentation=app.config['BACKGROUND'],
-    )"""
+        enable_segmentation=True,  # app.config['BACKGROUND'],
+    )
 
     live_stream_event.set()
     while live_stream_event.is_set():
@@ -102,7 +102,8 @@ def main_loop(filter='none'):
         if frame is None:
             time.sleep(0.5)
             continue
-        # pose_detection.detect_pose(landmarker=landmarker, frame=frame)
+
+        pose_detection.detect_pose(landmarker=landmarker, frame=frame)
         # carry on with stream
         """frame = drawing.process_image(
             frame,
