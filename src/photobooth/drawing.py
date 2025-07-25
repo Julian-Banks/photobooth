@@ -3,6 +3,8 @@ import mediapipe as mp
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import time
+
+from pydantic.errors import DEV_ERROR_DOCS_URL
 from photobooth.config import (
     OVERLAY,
     BACKGROUND,
@@ -14,6 +16,7 @@ from photobooth.config import (
 import cv2
 import numpy as np
 from photobooth.pose_detection import DETECTION_STATE
+from photobooth.transparent_background import transparent_background
 import os
 
 BACKGROUND_IMAGE = None
@@ -45,21 +48,18 @@ def get_overlay_image(overlay):
     global OVERLAY_IMAGE
     if OVERLAY_IMAGE is None:
         path = os.path.join(OVERLAY, f"{overlay}.png")
-        print(path)
         OVERLAY_IMAGE = cv2.imread(path, cv2.IMREAD_UNCHANGED)
         OVERLAY_IMAGE = cv2.flip(OVERLAY_IMAGE, 1)
-        if OVERLAY_IMAGE is None:
-            print("Overlay image is none!!")
-        else:
-            print(f"image shape {OVERLAY_IMAGE.shape}")
     return OVERLAY_IMAGE
 
 
 def get_background_image(background):
     global BACKGROUND_IMAGE
     if BACKGROUND_IMAGE is None:
-        path = os.path.join(BACKGROUND_IMAGE, f"{background}.png")
-        BACKGROUND_IMAGE = cv2.imread(BACKGROUND, cv2.IMREAD_UNCHANGED)
+        path = os.path.join(BACKGROUND, f"{background}.png")
+        BACKGROUND_IMAGE = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        BACKGROUND_IMAGE = cv2.flip(BACKGROUND_IMAGE, 1)
+
     return BACKGROUND_IMAGE
 
 
@@ -118,11 +118,10 @@ def get_asset1():
 
 
 def draw_overlay(frame, overlay):
-    asset = get_overlay_image(overlay)  # shape (H, W, 4)
     fh, fw, _ = frame.shape
 
     # Resize overlay (and alpha) to *exactly* match frame (can distort)
-    asset_resized = cv2.resize(asset, (fw, fh), interpolation=cv2.INTER_AREA)
+    asset_resized = cv2.resize(overlay, (fw, fh), interpolation=cv2.INTER_AREA)
     b, g, r, a = cv2.split(asset_resized)
     asset_rgb = cv2.merge([b, g, r])
     alpha_mask = a / 255.0
@@ -151,6 +150,50 @@ def check_background_size(frame):
         )
 
     return BACKGROUND_IMAGE
+
+
+def resize_to_photo_dimensions(image, image_to_resize):
+    """
+    Resize and crop image_to_resize to match the shape of image, keeping aspect ratio and filling the area (may crop).
+    """
+    # Get target dimensions
+    target_h, target_w = image.shape[:2]
+    src_h, src_w = image_to_resize.shape[:2]
+
+    # Compute scale to cover the target area
+    scale = max(target_w / src_w, target_h / src_h)
+    new_w, new_h = int(src_w * scale), int(src_h * scale)
+
+    # Resize while keeping aspect ratio (may be too large in one dimension)
+    resized = cv2.resize(
+        image_to_resize, (new_w, new_h), interpolation=cv2.INTER_AREA
+    )
+
+    # Center-crop to target size
+    start_x = (new_w - target_w) // 2
+    start_y = (new_h - target_h) // 2
+    cropped = resized[
+        start_y : start_y + target_h, start_x : start_x + target_w
+    ]
+    return cropped
+
+
+def replace_background_long(frame, filter):
+    background_image = get_background_image(filter)
+    background_image = resize_to_photo_dimensions(frame, background_image)
+    frame = transparent_background(frame)
+    frame = draw_overlay(background_image, frame)
+    return frame
+
+
+def replace_background_short(frame, filter, result):
+    frame = remove_background_livestream(frame, result)
+    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    frame = resize_livestream(frame)
+    background_image = get_background_image(filter)
+    background_image = resize_to_photo_dimensions(frame, background_image)
+    frame = draw_overlay(background_image, frame)
+    return frame
 
 
 def process_image_demo(
@@ -202,26 +245,39 @@ def resize_livestream(frame, target_height=1920, target_width=1080):
 
 def process_live_stream(frame, filter, webcam, size=None):
     # frame = cv2.rotate(frame, 90)\
-    if not webcam:
-        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    frame = resize_livestream(frame)
-
-    overlay = filter  # do error checking here
-    frame = motor_show(frame, overlay, size)
+    frame = motor_show_livestream(frame, filter, size)
 
     frame = cv2.flip(frame, 1)
     return frame
 
 
-def motor_show(frame, filter, size=None):
-    frame = draw_overlay(frame, filter)
+def motor_show_livestream(frame, filter, size=None):
+    """
+    if DETECTION_STATE.result:
+        result = DETECTION_STATE.result
+        frame = replace_background_short(frame, filter, result)
+    else:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        frame = resize_livestream(frame)
+    """
+    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    frame = resize_livestream(frame)
+    overlay = get_overlay_image(filter)  # shape (H, W, 4)
+    frame = draw_overlay(frame, overlay)
+    return frame
+
+
+def motor_show_still(frame, filter, size=None):
+    frame = replace_background_long(frame, filter)
+    overlay = get_overlay_image(filter)  # shape (H, W, 4)
+    frame = draw_overlay(frame, overlay)
     return frame
 
 
 def process_still_image(filter, size=None):
     image = get_saved_photo()
     image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    image = motor_show(image, filter)
+    image = motor_show_still(image, filter)
     # print("saving_image!")
     image = cv2.flip(image, 1)
     save_image(image, PATH_TO_SAVED_IMAGE)
@@ -236,10 +292,7 @@ def save_image(frame, path):
     success = cv2.imwrite(path, frame)
 
 
-def draw_segmentation_on_image(frame, result):
-    BG_COLOR = (192, 192, 192)
-    bg_image = np.zeros_like(frame, dtype=np.uint8)
-    bg_image[:] = BG_COLOR
+def draw_segmentation_on_image(frame, result, filter):
 
     background_image = check_background_size(frame)
 
@@ -248,6 +301,27 @@ def draw_segmentation_on_image(frame, result):
 
     frame = np.where(condition, frame, background_image)
     return frame
+
+
+def remove_background_livestream(frame, result, threshold=0.1):
+    """
+    Returns frame with background removed (alpha=0), foreground alpha=255 (or soft alpha if desired).
+    frame: (H, W, 3) BGR
+    result: object with .segmentation_masks[0].numpy_view() -> (H, W) float mask, foreground ≈ 1, background ≈ 0
+    """
+    segmentation_mask = result.segmentation_masks[
+        0
+    ].numpy_view()  # shape (H, W), values [0,1]
+    # Option 1: Hard mask
+    alpha = (segmentation_mask > threshold).astype(np.uint8) * 255
+    # Option 2: Soft mask (smooth alpha)
+    # alpha = np.clip((segmentation_mask - threshold) / (1 - threshold), 0, 1) * 255
+    # alpha = alpha.astype(np.uint8)
+
+    # Convert BGR frame to BGRA
+    frame_bgra = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
+    frame_bgra[:, :, 3] = alpha
+    return frame_bgra
 
 
 def draw_asset_image(asset_no, frame, landmark_no, result):

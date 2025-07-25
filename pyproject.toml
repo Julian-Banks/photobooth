@@ -5,7 +5,7 @@ dependencies=[
   "opencv-python",
   "mediapipe",
   "numpy",
-  "pre-commit",
+  "pre-commit", 
   "flask",
 ]
 requires-python = ">=3.9"
