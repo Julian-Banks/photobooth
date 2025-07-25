@@ -200,9 +200,10 @@ def resize_livestream(frame, target_height=1920, target_width=1080):
     return cropped
 
 
-def process_live_stream(frame, filter, size=None):
+def process_live_stream(frame, filter, webcam, size=None):
     # frame = cv2.rotate(frame, 90)\
-
+    if not webcam:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
     frame = resize_livestream(frame)
 
     overlay = filter  # do error checking here
@@ -221,7 +222,7 @@ def process_still_image(filter, size=None):
     image = get_saved_photo()
     image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
     image = motor_show(image, filter)
-    print("saving_image!")
+    # print("saving_image!")
     image = cv2.flip(image, 1)
     save_image(image, PATH_TO_SAVED_IMAGE)
     # think I should change filter and size to state values that can be more easily accessed.
@@ -233,10 +234,6 @@ def save_image(frame, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     print(f"Frame dtype: {frame.dtype}, shape: {frame.shape}")
     success = cv2.imwrite(path, frame)
-    if success:
-        print("Image saved successfully")
-    if not success:
-        print("Image not saved successfully!!!")
 
 
 def draw_segmentation_on_image(frame, result):

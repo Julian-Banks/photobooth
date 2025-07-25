@@ -75,7 +75,7 @@ def trigger_photo():
     ok = camera_control.capture_and_save(path)  # <- blocks ~2 s
     if not ok:
         return 'capture failed', 500
-    # processed = drawing.process_still_image("blue")
+    processed = drawing.process_still_image("blue")
     capture_photo_event.clear()
     live_stream_event.clear()
     return '', 204
@@ -112,7 +112,9 @@ def main_loop(filter='none'):
             overlay=app.config['OVERLAY'],
             pickachu=app.config['PIKACHU'],
         )"""
-        frame = drawing.process_live_stream(frame, filter)
+        frame = drawing.process_live_stream(
+            frame, filter, app.config['WEBCAM']
+        )
 
         MJPEG_stream = drawing.get_stream_frame(frame)
         yield MJPEG_stream
