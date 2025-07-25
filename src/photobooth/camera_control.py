@@ -20,6 +20,12 @@ edsdk.stop_live_view.restype = ctypes.c_bool
 edsdk.get_live_view_frame.restype = ctypes.POINTER(ctypes.c_ubyte)
 edsdk.get_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_int)]
 edsdk.free_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
+edsdk.capture_to_card_and_fetch.argtypes = [ctypes.c_char_p, ctypes.c_int]
+edsdk.capture_to_card_and_fetch.restype = ctypes.c_bool
+
+
+def capture_to_card_and_fetch(path, wait_time):
+    return edsdk.capture_to_card_and_fetch(path, wait_time)
 
 
 def get_camera_count():

@@ -69,13 +69,11 @@ def video_feed():
 
 @app.route('/capture_photo', methods=['POST'])
 def trigger_photo():
-    print("Taking a photo now!")
-    processed = drawing.process_still_image("blue")
-    path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
-    ok = camera_control.capture_and_save(path)  # <- blocks ~2 s
-    if not ok:
-        return 'capture failed', 500
-    processed = drawing.process_still_image("blue")
+    # path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
+    # ok = camera_control.capture_to_card_and_fetch(path.encode(),1200)  # <- blocks ~2 s
+    # if not ok:
+    #    return 'capture failed', 500
+    # processed = drawing.process_still_image("blue")
     capture_photo_event.clear()
     live_stream_event.clear()
     return '', 204
@@ -90,35 +88,42 @@ def main_loop(filter='none'):
         num_poses=app.config['numPoses'],
         enable_segmentation=True,  # app.config['BACKGROUND'],
     )
+    try:
+        live_stream_event.set()
+        while live_stream_event.is_set():
 
-    live_stream_event.set()
-    while live_stream_event.is_set():
+            if app.config['WEBCAM']:
+                _, frame = stream.read()
+            else:
+                frame = camera_control.get_live_view_frame()
 
-        if app.config['WEBCAM']:
-            _, frame = stream.read()
-        else:
-            frame = camera_control.get_live_view_frame()
+            if frame is None:
+                time.sleep(0.5)
+                continue
 
-        if frame is None:
-            time.sleep(0.5)
-            continue
+            pose_detection.detect_pose(landmarker=landmarker, frame=frame)
+            # carry on with stream
+            """frame = drawing.process_image(
+                frame,
+                skeleton=app.config['SKELETON'],
+                landmark_no=app.config['LANDMARK'],
+                background=app.config['BACKGROUND'],
+                overlay=app.config['OVERLAY'],
+                pickachu=app.config['PIKACHU'],
+            )"""
+            frame = drawing.process_live_stream(
+                frame, filter, app.config['WEBCAM']
+            )
 
-        pose_detection.detect_pose(landmarker=landmarker, frame=frame)
-        # carry on with stream
-        """frame = drawing.process_image(
-            frame,
-            skeleton=app.config['SKELETON'],
-            landmark_no=app.config['LANDMARK'],
-            background=app.config['BACKGROUND'],
-            overlay=app.config['OVERLAY'],
-            pickachu=app.config['PIKACHU'],
-        )"""
-        frame = drawing.process_live_stream(
-            frame, filter, app.config['WEBCAM']
-        )
+            MJPEG_stream = drawing.get_stream_frame(frame)
+            yield MJPEG_stream
+    finally:
 
-        MJPEG_stream = drawing.get_stream_frame(frame)
-        yield MJPEG_stream
+        path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
+        ok = camera_control.capture_to_card_and_fetch(
+            path.encode(), 1200
+        )  # <- blocks ~2 s
+        processed = drawing.process_still_image("blue")
 
 
 def create_arg_parser():
