@@ -95,46 +95,52 @@ html,body{
   justify-content: center;
   align-items: center;
   gap: var(--space-4);
-  height: 100vh;               /* Fill vertical space for real impact */
-  width: 100vw;                /* Make carousel stretch fully */
+  height: 100vh;
+  width: 100vw;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 0 var(--space-4);
 }
+
 .carousel::-webkit-scrollbar { display: none; }
 
-/* Big, bold filter previews */
+.filter-option {
+  flex: 1 1 0;              /* Let each option grow/shrink equally */
+  max-width: 80vw;           /* Never exceed 80% of viewport width */
+  height: 80vh;              /* Fill most of the viewport vertically */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform .18s cubic-bezier(.4,0,.2,1);
+}
+
 .filter-option img {
-  max-width: 50vw;             /* Each image fills half the screen width! */
-  max-height: 70vh;            /* Up to 70% of viewport height */
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;      /* fills entire container, cropping if needed */
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  transition: transform .18s ease;
-  background: white;
-  object-fit: contain;
+  background: #fff;
+  transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s;
   display: block;
-  margin: 0 auto;
 }
 
-
-.filter-option img{
-  max-width:300px;             /* ⬅ bigger previews                */
-  max-height:300px;
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
-  transition:transform .18s ease;
-}
-
-/* highlight the chosen tile – *no border‑colour change* on focus,
-   just a subtle size bump + ring shadow                            */
 .filter-option.selected img {
-  transform: scale(1.12);
-  box-shadow: 0 0 0 8px var(--clr-accent) inset, var(--shadow);
+  /* NO border, NO box-shadow, just a size pop */
+  transform: scale(1.10);
+  box-shadow: var(--shadow);
 }
 
 /* remove default browser focus ring colour change */
-.filter-option:focus-visible{ outline:none; }
+.filter-option:focus,
+.filter-option:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
 /*---------------------------------------------------------
   QR‑code confirmation popup
