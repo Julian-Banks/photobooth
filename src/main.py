@@ -1,15 +1,24 @@
-from photobooth import pose_detection, drawing, camera_control, camera
+from numpy import sign
+from photobooth import (
+    pose_detection,
+    drawing,
+    camera_control,
+    camera,
+    camera_singleton,
+)
 from flask import Flask, Response, render_template, session, request
 import json
 import time
 import argparse
 import os
 from threading import Event
-
+import signal
+import threading
 
 # from photobooth.camera_singleton import CameraWorker
 # camera_worker = CameraWorker()
 
+_shutdown_flag = Event()
 capture_photo_event = Event()
 live_stream_event = Event()
 camera_initialised = Event()
@@ -69,11 +78,9 @@ def video_feed():
 
 @app.route('/capture_photo', methods=['POST'])
 def trigger_photo():
-    # path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
-    # ok = camera_control.capture_to_card_and_fetch(path.encode(),1200)  # <- blocks ~2 s
-    # if not ok:
-    #    return 'capture failed', 500
-    # processed = drawing.process_still_image("blue")
+    path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image2.jpg')
+    camera_singleton.capture_photo(path)
+    processed = drawing.process_still_image("blue")
     capture_photo_event.clear()
     live_stream_event.clear()
     return '', 204
@@ -92,25 +99,14 @@ def main_loop(filter='none'):
         live_stream_event.set()
         while live_stream_event.is_set():
 
-            if app.config['WEBCAM']:
-                _, frame = stream.read()
-            else:
-                frame = camera_control.get_live_view_frame()
-
+            # frame = camera_control.get_live_view_frame()
+            frame = camera_singleton.get_live_view_frame()
             if frame is None:
                 time.sleep(0.5)
                 continue
 
             pose_detection.detect_pose(landmarker=landmarker, frame=frame)
-            # carry on with stream
-            """frame = drawing.process_image(
-                frame,
-                skeleton=app.config['SKELETON'],
-                landmark_no=app.config['LANDMARK'],
-                background=app.config['BACKGROUND'],
-                overlay=app.config['OVERLAY'],
-                pickachu=app.config['PIKACHU'],
-            )"""
+
             frame = drawing.process_live_stream(
                 frame, filter, app.config['WEBCAM']
             )
@@ -118,12 +114,7 @@ def main_loop(filter='none'):
             MJPEG_stream = drawing.get_stream_frame(frame)
             yield MJPEG_stream
     finally:
-
-        path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
-        ok = camera_control.capture_to_card_and_fetch(
-            path.encode(), 1200
-        )  # <- blocks ~2 s
-        processed = drawing.process_still_image("blue")
+        pass
 
 
 def create_arg_parser():
@@ -184,6 +175,25 @@ def create_arg_parser():
     return parser
 
 
+def run_flask():
+    app.run(
+        host='0.0.0.0',
+        port=8080,
+        threaded=True,
+        debug=False,
+        use_reloader=False,
+    )
+
+
+def handle_shutdown(signum, frame):
+    print(f"Recieved shutdown signal: {signum}")
+    _shutdown_flag.set()
+
+
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
+
+
 if __name__ == "__main__":
     parser = create_arg_parser()
     args = parser.parse_args()
@@ -197,23 +207,6 @@ if __name__ == "__main__":
     app.config['PIKACHU'] = args.pikachu
     app.config['WEBCAM'] = args.webcam
 
-    try:
-        if app.config['WEBCAM']:
-            stream = camera.start_stream()
-        camera_control.init_camera()
-        camera_control.start_live_view()
-        path = os.path.join(os.getcwd(), 'src', 'web', 'static', 'image.jpg')
-        # camera_control.capture_and_save(path = path )
-        app.run(
-            host='0.0.0.0',
-            port=8080,
-            threaded=True,
-            debug=False,
-            use_reloader=False,
-        )
-    finally:
-        # camera_worker.shutdown()
-        camera_control.stop_live_view()
-        camera_control.shutdown()
-        if app.config['WEBCAM']:
-            camera.shutdown(stream)
+    threading.Thread(target=run_flask, daemon=True).start()
+    _shutdown_flag.clear()
+    camera_singleton.camera_mainloop(_shutdown_flag)

@@ -213,7 +213,7 @@ bool capture_photo() {
 }
 
 
-static void pump_sdk_events(int ms)
+extern "C"{ void pump_sdk_events(int ms)
 {
 #ifdef __APPLE__
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, ms / 1000.0, false);
@@ -224,6 +224,7 @@ static void pump_sdk_events(int ms)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 #endif
+}
 }
 
 static bool find_latest(EdsDirectoryItemRef dir,
