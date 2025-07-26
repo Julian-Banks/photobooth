@@ -14,7 +14,7 @@ import os
 from threading import Event
 import signal
 import threading
-
+import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -179,18 +179,39 @@ def create_arg_parser():
 
 
 def open_localhost():
+    global driver
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.add_argument(
+        "--app=http://localhost:8080"
+    )  # Run in headless mode
+    chrome_options.add_argument("--start-fullscreen")
+    chrome_options.add_experimental_option(
+        "excludeSwitches", ["enable-automation"]
+    )
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+
     driver = webdriver.Chrome(options=chrome_options)
-    driver.get(
-        "http://localhost:8080"
-    )  # Replace 8080 with your localhost port
+    driver.execute_script(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    )
+    driver.get("http://localhost:8080")
     print("Page title:", driver.title)
-    # You can add more actions here
-    driver.quit()
 
 
-open_localhost()
+def wait_for_flask(host="localhost", port=8080, timeout=10):
+    url = f"http://{host}:{port}"
+    start = time.time()
+    while True:
+        try:
+            r = requests.get(url)
+            if r.status_code == 200:
+                print("Flask server is up!")
+                return
+        except requests.ConnectionError:
+            pass
+        if time.time() - start > timeout:
+            raise RuntimeError("Flask server did not start in time.")
+        time.sleep(0.2)
 
 
 def run_flask():
@@ -205,6 +226,12 @@ def run_flask():
 
 def handle_shutdown(signum, frame):
     print(f"Recieved shutdown signal: {signum}")
+    global driver
+    try:
+        if driver is not None:
+            driver.quit()
+    except Exception as e:
+        print(f"Error closing Chrome driver: {e}")
     _shutdown_flag.set()
 
 
@@ -227,5 +254,6 @@ if __name__ == "__main__":
 
     threading.Thread(target=run_flask, daemon=True).start()
     _shutdown_flag.clear()
+    wait_for_flask()
     open_localhost()
     camera_singleton.camera_mainloop(_shutdown_flag)
