@@ -89,26 +89,34 @@ html,body{
 /*---------------------------------------------------------
   Carousel  (filter chooser on /options)
 ---------------------------------------------------------*/
-.carousel{
-  display:flex;
-  justify-content:center;      /* ⬅ centre the whole strip when it’s narrower
-                                   than the viewport                   */
-  align-items:center;
-  gap:var(--space-4);
-  height:100%;
-  overflow-x:auto;
-  scrollbar-width:none;
-}
-.carousel::-webkit-scrollbar{ display:none; }
 
-/* individual tiles */
-.filter-option{
-  border:none;
-  padding:0;
-  background:none;
-  cursor:pointer;
-  transition:transform .18s ease;
+.carousel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+  height: 100vh;               /* Fill vertical space for real impact */
+  width: 100vw;                /* Make carousel stretch fully */
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.carousel::-webkit-scrollbar { display: none; }
+
+/* Big, bold filter previews */
+.filter-option img {
+  max-width: 50vw;             /* Each image fills half the screen width! */
+  max-height: 70vh;            /* Up to 70% of viewport height */
+  width: auto;
+  height: auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform .18s ease;
+  background: white;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
 
 .filter-option img{
   max-width:300px;             /* ⬅ bigger previews                */
@@ -120,9 +128,9 @@ html,body{
 
 /* highlight the chosen tile – *no border‑colour change* on focus,
    just a subtle size bump + ring shadow                            */
-.filter-option.selected img{
-  transform:scale(1.08);
-  box-shadow:0 0 0 4px var(--clr-accent) inset, var(--shadow);
+.filter-option.selected img {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 8px var(--clr-accent) inset, var(--shadow);
 }
 
 /* remove default browser focus ring colour change */

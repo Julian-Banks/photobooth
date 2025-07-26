@@ -8,23 +8,37 @@
 
   <style>
     :root { --page-bg: url('{{ url_for("static", filename="qrcode_bg.png") }}'); }
-    .content{
-      height:100%;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:var(--space-4);
-      padding:var(--space-4);
-      text-align:center;
+    .content {
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      box-sizing: border-box;
     }
-    .preview-image,
-    .qr-image{
-      max-width:min(80%,420px);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
+
+    .preview-image {
+      max-width: 80vw;       /* Fill most of the width */
+      max-height: 70vh;      /* Fill most of the height */
+      width: auto;
+      height: auto;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      object-fit: contain;
     }
-    .qr-image{ max-width:240px; }
+
+    .qr-image {
+      max-width: 40vw;       /* Nice and bold for scanning */
+      max-height: 30vh;
+      width: auto;
+      height: auto;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      object-fit: contain;
+    }
   </style>
 </head>
 <body class="full-bg">
