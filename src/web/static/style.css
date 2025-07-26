@@ -89,25 +89,31 @@ html,body{
 /*---------------------------------------------------------
   Carousel  (filter chooser on /options)
 ---------------------------------------------------------*/
-
 .carousel {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-4);
-  height: 100vh;
   width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;      /* center .carousel-inner */
+  align-items: center;          /* center vertically if you want */
   overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 var(--space-4);
+  padding: 0;
+  box-sizing: border-box;
 }
 
+.carousel-inner {
+  display: flex;
+  gap: 3rem;                    /* or your preferred gap */
+  align-items: center;
+  width: 90vw;
+}
 .carousel::-webkit-scrollbar { display: none; }
 
 .filter-option {
-  flex: 1 1 0;              /* Let each option grow/shrink equally */
-  max-width: 80vw;           /* Never exceed 80% of viewport width */
-  height: 80vh;              /* Fill most of the viewport vertically */
+  flex: 1 1 0;
+  max-width: 60vw;        /* never overflow the viewport horizontally */
+  max-height: 80vh;       /* big, but not offscreen */
+  min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,21 +127,19 @@ html,body{
 .filter-option img {
   width: 100%;
   height: 100%;
-  object-fit: cover;      /* fills entire container, cropping if needed */
+  object-fit: contain;    /* <<< THIS is key: NO cropping, just scales to fit */
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   background: #fff;
-  transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s;
   display: block;
+  transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s;
 }
 
 .filter-option.selected img {
-  /* NO border, NO box-shadow, just a size pop */
-  transform: scale(1.10);
+  transform: scale(1.07);   /* subtle pop, no ring/border */
   box-shadow: var(--shadow);
 }
 
-/* remove default browser focus ring colour change */
 .filter-option:focus,
 .filter-option:focus-visible {
   outline: none !important;

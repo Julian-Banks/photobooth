@@ -15,7 +15,8 @@
 </head>
 <body class="full-bg">
 
-  <div class="carousel">
+  <div class ="carousel"> 
+  <div class="carousel-inner">
     <button class="filter-option selected" data-filter="red">
       <img src="{{ url_for('static', filename='red.png') }}" alt="Red filter preview">
     </button>
@@ -23,6 +24,7 @@
     <button class="filter-option" data-filter="blue">
       <img src="{{ url_for('static', filename='blue.png') }}" alt="Blue filter preview">
     </button>
+  </div>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>

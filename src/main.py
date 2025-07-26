@@ -254,6 +254,6 @@ if __name__ == "__main__":
 
     threading.Thread(target=run_flask, daemon=True).start()
     _shutdown_flag.clear()
-    wait_for_flask()
-    open_localhost()
+    # wait_for_flask()
+    # open_localhost()
     camera_singleton.camera_mainloop(_shutdown_flag)
