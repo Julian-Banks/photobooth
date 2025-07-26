@@ -8,9 +8,12 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 #include <string>
+#include <filesystem>
 
 extern "C" {
 
+namespace fs = std::filesystem;
+static EdsUInt32 kSaveToCamera = kEdsSaveTo_Camera;
 // ---- Global Camera Handle ----
 EdsCameraRef camera = nullptr;
 static bool sdk_initialized = false;
@@ -207,6 +210,185 @@ bool capture_photo() {
     EdsError a = EdsSendCommand(camera, kEdsCameraCommand_PressShutterButton, kEdsCameraCommand_ShutterButton_Completely);
     EdsError b = EdsSendCommand(camera, kEdsCameraCommand_PressShutterButton, kEdsCameraCommand_ShutterButton_OFF);
     return a == EDS_ERR_OK && b == EDS_ERR_OK;
+}
+
+
+extern "C"{ void pump_sdk_events(int ms)
+{
+#ifdef __APPLE__
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, ms / 1000.0, false);
+#else
+    // EdsGetEvent has been available since EDSDK 13.13
+    for (int i = 0; i < ms / 10; ++i) {
+        EdsGetEvent();                 // swallow one batch of events
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+#endif
+}
+}
+
+static bool find_latest(EdsDirectoryItemRef dir,
+                        EdsDirectoryItemRef* latest,
+                        EdsTime*            latestTime)
+{
+    EdsUInt32 childCount = 0;
+    if (EdsGetChildCount(dir, &childCount) != EDS_ERR_OK) return false;
+
+    for (EdsUInt32 i = 0; i < childCount; ++i) {
+        EdsDirectoryItemRef child = nullptr;
+        if (EdsGetChildAtIndex(dir, i, &child) != EDS_ERR_OK) continue;
+
+        EdsDirectoryItemInfo info{};
+        if (EdsGetDirectoryItemInfo(child, &info) != EDS_ERR_OK) {
+            EdsRelease(child);
+            continue;
+        }
+
+        if (info.isFolder) {
+            find_latest(child, latest, latestTime);      // recurse
+            EdsRelease(child);
+        } else {                                         // regular file
+          if (info.szFileName[0]) {
+              std::string currentName = info.szFileName;
+              std::string bestName    = *latest ? EdsDirectoryItemInfo{}.szFileName : "";
+
+              if (*latest) {
+                  EdsDirectoryItemInfo bestInfo;
+                  EdsGetDirectoryItemInfo(*latest, &bestInfo);
+                  bestName = bestInfo.szFileName;
+              }
+
+              if (currentName > bestName) {
+                  if (*latest) EdsRelease(*latest);
+                  *latest = child;
+              } else {
+                  EdsRelease(child);
+              }
+            } else {
+                EdsRelease(child);
+            }
+        }
+    }
+    return *latest != nullptr;
+}
+
+
+extern "C" bool capture_to_card_and_fetch(const char* dest_path,
+                                          int wait_ms /* e.g. 1200 */)
+{
+    if (!camera) {
+        std::cerr << "❌ No camera connected\n";
+        return false;
+    }
+
+    static bool saveModeSet = false;
+    if (!saveModeSet) {
+        EdsUInt32 saveTarget = kEdsSaveTo_Camera;
+        EdsError setErr = EdsSetPropertyData(camera, kEdsPropID_SaveTo,
+                                             0, sizeof(saveTarget), &saveTarget);
+        if (setErr != EDS_ERR_OK) {
+            std::cerr << "❌ Failed to set save mode to camera: 0x" << std::hex << setErr << '\n';
+            return false;
+        }
+        saveModeSet = true;
+        std::cout << "💾 Camera set to save to card\n";
+    }
+
+    // ───── STEP 1: Trigger capture ─────
+    std::cout << "📸 Sending capture command...\n";
+    if (EdsSendCommand(camera, kEdsCameraCommand_TakePicture, 0) != EDS_ERR_OK) {
+        std::cerr << "❌ EdsSendCommand failed\n";
+        return false;
+    }
+
+    // ───── STEP 2: Wait for write ─────
+    std::cout << "⏳ Waiting " << wait_ms << "ms for camera to save file\n";
+    pump_sdk_events(wait_ms);
+
+    // ───── STEP 3: Find newest file on card ─────
+    std::cout << "📂 Scanning volume for latest file\n";
+    EdsVolumeRef volume = nullptr;
+    if (EdsGetChildAtIndex(camera, 0, &volume) != EDS_ERR_OK) {
+        std::cerr << "❌ Failed to access volume 0\n";
+        return false;
+    }
+
+    // Use lexicographic filename comparison to find newest
+    EdsDirectoryItemRef latest = nullptr;
+    std::string latestName = "";
+
+    EdsUInt32 itemCount = 0;
+    if (EdsGetChildCount(volume, &itemCount) == EDS_ERR_OK) {
+        for (EdsUInt32 i = 0; i < itemCount; ++i) {
+            EdsDirectoryItemRef folder = nullptr;
+            if (EdsGetChildAtIndex(volume, i, &folder) != EDS_ERR_OK)
+                continue;
+
+            EdsUInt32 subCount = 0;
+            if (EdsGetChildCount(folder, &subCount) == EDS_ERR_OK) {
+                for (EdsUInt32 j = 0; j < subCount; ++j) {
+                    EdsDirectoryItemRef item = nullptr;
+                    if (EdsGetChildAtIndex(folder, j, &item) != EDS_ERR_OK)
+                        continue;
+
+                    EdsDirectoryItemInfo info{};
+                    if (EdsGetDirectoryItemInfo(item, &info) == EDS_ERR_OK && !info.isFolder) {
+                        std::string name = info.szFileName;
+                        if (name > latestName) {
+                            if (latest) EdsRelease(latest);
+                            latest = item;
+                            latestName = name;
+                        } else {
+                            EdsRelease(item);
+                        }
+                    } else {
+                        EdsRelease(item);
+                    }
+                }
+            }
+
+            EdsRelease(folder);
+        }
+    }
+
+    EdsRelease(volume);
+
+    if (!latest) {
+        std::cerr << "❌ No file found on card\n";
+        return false;
+    }
+
+    std::cout << "✅ Latest file: " << latestName << '\n';
+
+    // ───── STEP 4: Download it ─────
+    std::cout << "📥 Downloading to: " << dest_path << '\n';
+
+    EdsStreamRef stream = nullptr;
+    if (EdsCreateFileStream(dest_path,
+                            kEdsFileCreateDisposition_CreateAlways,
+                            kEdsAccess_ReadWrite,
+                            &stream) != EDS_ERR_OK) {
+        std::cerr << "❌ Failed to create output stream\n";
+        EdsRelease(latest);
+        return false;
+    }
+
+    EdsDirectoryItemInfo info{};
+    EdsGetDirectoryItemInfo(latest, &info);
+
+    bool ok = (EdsDownload(latest, info.size, stream) == EDS_ERR_OK) &&
+              (EdsDownloadComplete(latest)             == EDS_ERR_OK);
+
+    EdsRelease(stream);
+    EdsRelease(latest);
+
+    if (!ok) {
+        std::cerr << "❌ Download failed\n";
+        return false;
+    }
+
+    std::cout << "✅ Download complete!\n";
+    return true;
 }
 
 
