@@ -36,14 +36,42 @@ def main():
                 if key == 27:  # ESC to quit
                     break
                 elif key == 32:  # Spacebar to capture
+                    start_time = time.time()
                     print("📸 Capturing photo...")
                     path = os.path.join(os.getcwd(), 'test_photos')
                     os.makedirs(path, exist_ok=True)
-                    filename = os.path.join(path, 'image.jpg')
+                    filename = os.path.join(path, 'image_saved.jpg')
                     saved = camera_control.capture_and_save(filename)
-                    time.sleep(1)
+                    end_time = time.time()
+
                     if saved:
-                        print(f"Image saved to: {filename}")
+                        print(
+                            f"Image saved to: {filename} in time :{end_time - start_time}"
+                        )
+                        saved_image = cv2.imread(filename)
+                        if saved_image is not None:
+                            cv2.imshow("Captured", saved_image)
+                            cv2.waitKey(2000)
+                            cv2.destroyWindow("Captured")
+                        else:
+                            print(
+                                "Image saved but could not display it (read error)."
+                            )
+                    else:
+                        print("Image not saved... :(")
+
+                    start_time = time.time()
+                    path = os.path.join(os.getcwd(), 'test_photos')
+                    os.makedirs(path, exist_ok=True)
+                    filename = os.path.join(path, 'image_fetched.jpg')
+                    saved = camera_control.capture_to_card_and_fetch(
+                        filename.encode(), 1000
+                    )
+                    end_time = time.time()
+                    if saved:
+                        print(
+                            f"Image saved to: {filename} in time :{end_time - start_time}"
+                        )
                         saved_image = cv2.imread(filename)
                         if saved_image is not None:
                             cv2.imshow("Captured", saved_image)

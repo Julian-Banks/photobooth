@@ -74,12 +74,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }; */
     
     document.addEventListener('keydown', (event) => {
-      console.log('key pressed in photobooth')
       if (event.key === 'Enter') {
         fetch('/capture_photo', {
           method: 'POST'
-        }) ;
-        window.location.href = '/qrcode';
+        })
+        .then(response => {
+          if (!response.ok) {
+            alert('Camera failed. Please try again.');
+            return;
+          }
+          window.location.href = '/qrcode';
+        })
+        .catch(err => {
+          console.error("Capture error", err);
+          alert('Camera failed. Please try again.');
+        });
       }
     });
   }

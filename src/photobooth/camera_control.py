@@ -20,6 +20,19 @@ edsdk.stop_live_view.restype = ctypes.c_bool
 edsdk.get_live_view_frame.restype = ctypes.POINTER(ctypes.c_ubyte)
 edsdk.get_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_int)]
 edsdk.free_live_view_frame.argtypes = [ctypes.POINTER(ctypes.c_ubyte)]
+edsdk.capture_to_card_and_fetch.argtypes = [ctypes.c_char_p, ctypes.c_int]
+edsdk.capture_to_card_and_fetch.restype = ctypes.c_bool
+
+edsdk.pump_sdk_events.restype = None
+edsdk.pump_sdk_events.argtypes = [ctypes.c_int]
+
+
+def spin_runloop_once(wait_time):
+    return edsdk.pump_sdk_events(wait_time)
+
+
+def capture_to_card_and_fetch(path, wait_time):
+    return edsdk.capture_to_card_and_fetch(path, wait_time)
 
 
 def get_camera_count():
