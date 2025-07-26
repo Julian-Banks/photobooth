@@ -2,34 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QR Code | Flask App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your Photo | Photobooth</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    :root { --page-bg: url('{{ url_for("static", filename="qrcode_bg.png") }}'); }
+    .content{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:var(--space-4);
+      padding:var(--space-4);
+      text-align:center;
+    }
+    .preview-image,
+    .qr-image{
+      max-width:min(80%,420px);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .qr-image{ max-width:240px; }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>You're All Set!</h1>
-    <p>Here's your photo preview — you can screenshot or download it</p>
+<body class="full-bg">
 
-    <div style="margin: 1.5rem 0;">
-      <img src="{{ url_for('static', filename='image.jpg') }}" alt="Preview Image"
-           style="max-width: 100%; height: auto; border-radius: 12px; border: 3px solid #ccc; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);">
-    </div>
-
-    <p>Scan the QR code below to access your microsite</p>
-
-    <div style="margin: 2rem 0;">
-      <img src="{{ url_for('static', filename='qrcode.png') }}" alt="QR Code"
-           style="max-width: 80%; height: auto; border: 4px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);">
-    </div>
-
-    <p>Press <strong>Enter</strong> to go home, or choose below</p>
+  <div class="content">
+    <img src="{{ url_for('static', filename='image.jpg')  }}" alt="Captured photo preview" class="preview-image">
+    <img src="{{ url_for('static', filename='qrcode.png') }}" alt="Scan to download"      class="qr-image">
   </div>
 
-  <div id="confirm-popup" style="display:none;" class="popup">
-    <p style="font-size: 1.3rem; font-weight: 500;">Return to Home?</p>
+  <!-- confirmation popup (display toggled by JS) -->
+  <div id="confirm-popup" class="popup">
+    <p>Return to home?</p>
     <div class="choices">
       <span id="confirm-yes" class="choice selected">Yes</span>
-      <span id="confirm-no" class="choice">No</span>
+      <span id="confirm-no"  class="choice">No</span>
     </div>
   </div>
 

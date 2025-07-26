@@ -1,23 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Options | Photobooth</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choose Filter | Photobooth</title>
 
-  <div class="container">
-      <h1>Options</h1>
-      <p>Pick your filter and all that jazz.</p>
-      <div class="carousel">
-          <div class="filter-option selected" data-filter="none">None</div>
-          <div class="filter-option" data-filter="red">red</div>
-          <div class="filter-option" data-filter="blue">blue</div>
-          <!-- add more filters if needed -->
-      </div>
+  <!-- global styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- page‑specific image background -->
+  <style>
+    :root { --page-bg: url('{{ url_for("static", filename="options.png") }}'); }
+  </style>
+</head>
+<body class="full-bg">
+
+  <div class="carousel">
+    <button class="filter-option selected" data-filter="red">
+      <img src="{{ url_for('static', filename='red.png') }}" alt="Red filter preview">
+    </button>
+
+    <button class="filter-option" data-filter="blue">
+      <img src="{{ url_for('static', filename='blue.png') }}" alt="Blue filter preview">
+    </button>
   </div>
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
