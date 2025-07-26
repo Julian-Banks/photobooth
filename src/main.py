@@ -91,8 +91,8 @@ def main_loop(filter='none'):
     print(f"selected_filter: {filter}")
 
     landmarker = pose_detection.setup_pose_landmarker(
-        model=app.config['MODEL'],
-        num_poses=app.config['numPoses'],
+        model=1,
+        num_poses=2,
         enable_segmentation=True,  # app.config['BACKGROUND'],
     )
     try:

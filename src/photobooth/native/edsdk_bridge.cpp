@@ -56,7 +56,7 @@ EdsError EDSCALLBACK handleObjectEvent(EdsObjectEvent event, EdsBaseRef object, 
         if (err == EDS_ERR_OK) {
             err = EdsDownload(dirItem, (EdsUInt32)itemInfo.size, stream);
             if (err != EDS_ERR_OK) {
-                std::cerr << "[edsdk_bridge] EdsDownload failed: 0x" << std::hex << err << std::endl;
+                std::cerr << "[edsdk_bridge] EdsDownload failed : 0x" << std::hex << err << std::endl;
             }
             if (err == EDS_ERR_OK) {
                 EdsDownloadComplete(dirItem);

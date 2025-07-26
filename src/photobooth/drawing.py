@@ -91,13 +91,6 @@ def get_asset():
 
 def get_saved_photo():
     image = cv2.imread(PATH_TO_SAVED_IMAGE_LOAD, cv2.IMREAD_UNCHANGED)
-    # image = cv2.resize(
-    #    image,
-    #    (0, 0),
-    #    fx=1080,
-    #    fy=1920,
-    #    interpolation=cv2.INTER_AREA,
-    # )
     return image
 
 
@@ -187,9 +180,6 @@ def replace_background_long(frame, filter):
 
 
 def replace_background_short(frame, filter, result):
-    frame = remove_background_livestream(frame, result)
-    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    frame = resize_livestream(frame)
     background_image = get_background_image(filter)
     background_image = resize_to_photo_dimensions(frame, background_image)
     frame = draw_overlay(background_image, frame)
@@ -252,16 +242,19 @@ def process_live_stream(frame, filter, webcam, size=None):
 
 
 def motor_show_livestream(frame, filter, size=None):
-    """
     if DETECTION_STATE.result:
-        result = DETECTION_STATE.result
-        frame = replace_background_short(frame, filter, result)
+        try:
+            result = DETECTION_STATE.result
+            frame = remove_background_livestream(frame, result)
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            frame = resize_livestream(frame)
+            frame = replace_background_short(frame, filter, result)
+        except:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            frame = resize_livestream(frame)
     else:
         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
         frame = resize_livestream(frame)
-    """
-    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    frame = resize_livestream(frame)
     overlay = get_overlay_image(filter)  # shape (H, W, 4)
     frame = draw_overlay(frame, overlay)
     return frame
@@ -303,7 +296,7 @@ def draw_segmentation_on_image(frame, result, filter):
     return frame
 
 
-def remove_background_livestream(frame, result, threshold=0.1):
+def remove_background_livestream(frame, result, threshold=0.3):
     """
     Returns frame with background removed (alpha=0), foreground alpha=255 (or soft alpha if desired).
     frame: (H, W, 3) BGR
@@ -313,10 +306,12 @@ def remove_background_livestream(frame, result, threshold=0.1):
         0
     ].numpy_view()  # shape (H, W), values [0,1]
     # Option 1: Hard mask
-    alpha = (segmentation_mask > threshold).astype(np.uint8) * 255
+    # alpha = (segmentation_mask > threshold).astype(np.uint8) * 255
     # Option 2: Soft mask (smooth alpha)
-    # alpha = np.clip((segmentation_mask - threshold) / (1 - threshold), 0, 1) * 255
-    # alpha = alpha.astype(np.uint8)
+    alpha = (
+        np.clip((segmentation_mask - threshold) / (1 - threshold), 0, 1) * 255
+    )
+    alpha = alpha.astype(np.uint8)
 
     # Convert BGR frame to BGRA
     frame_bgra = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
