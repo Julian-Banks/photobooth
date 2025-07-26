@@ -15,6 +15,9 @@ from threading import Event
 import signal
 import threading
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
 # from photobooth.camera_singleton import CameraWorker
 # camera_worker = CameraWorker()
 
@@ -175,6 +178,21 @@ def create_arg_parser():
     return parser
 
 
+def open_localhost():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run in headless mode
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get(
+        "http://localhost:8080"
+    )  # Replace 8080 with your localhost port
+    print("Page title:", driver.title)
+    # You can add more actions here
+    driver.quit()
+
+
+open_localhost()
+
+
 def run_flask():
     app.run(
         host='0.0.0.0',
@@ -209,4 +227,5 @@ if __name__ == "__main__":
 
     threading.Thread(target=run_flask, daemon=True).start()
     _shutdown_flag.clear()
+    open_localhost()
     camera_singleton.camera_mainloop(_shutdown_flag)
