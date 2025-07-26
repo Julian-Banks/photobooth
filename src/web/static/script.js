@@ -57,38 +57,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Photobooth page
   if (path === '/photobooth') {
-    /*
-    const eventSource = new EventSource("/stats_feed");
-
-    eventSource.onmessage = function(event) {
-      const data = JSON.parse(event.data);
-      document.getElementById('fps').textContent = data.fps;
-      document.getElementById('model').textContent = data.model;
-      document.getElementById('numPoses').textContent = data.numPoses;
-    };
-
-    eventSource.onerror = function(error) {
-      console.error("SSE connection error", error);
-      // Optional: stop retry attempts
-      eventSource.close();
-    }; */
-    
-    document.addEventListener('keydown', (event) => {
+    document.addEventListener('keydown', async (event) => {
       if (event.key === 'Enter') {
-        fetch('/capture_photo', {
-          method: 'POST'
-        })
-        .then(response => {
-          if (!response.ok) {
-            alert('Camera failed. Please try again.');
-            return;
-          }
+        const countdownEl = document.getElementById('countdown');
+        const loadingEl = document.getElementById('loading');
+
+        // Show countdown from 3 → 1
+        countdownEl.style.display = 'flex';
+        for (let i = 3; i > 0; i--) {
+          countdownEl.textContent = i;
+          await new Promise(res => setTimeout(res, 1000));
+        }
+        countdownEl.style.display = 'none';
+
+        // Show loading spinner
+        loadingEl.style.display = 'flex';
+
+        try {
+          const response = await fetch('/capture_photo', { method: 'POST' });
+          if (!response.ok) throw new Error("Capture failed");
           window.location.href = '/qrcode';
-        })
-        .catch(err => {
+        } catch (err) {
           console.error("Capture error", err);
           alert('Camera failed. Please try again.');
-        });
+          loadingEl.style.display = 'none';
+        }
       }
     });
   }

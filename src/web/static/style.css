@@ -293,3 +293,31 @@ p {
     transform: scale(1.1);
 }
 
+.overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 6rem;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 40px 80px;
+  border-radius: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  border: 10px solid #f3f3f3;
+  border-top: 10px solid var(--accent, #0055ff);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
